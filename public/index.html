@@ -28,9 +28,16 @@
       <header class="chat-header">
         <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
       </header>
-      <div class="messages-container" id="messagesBox">
-        <div class="system-msg">Добро пожаловать в гараж.</div>
-      </div>
+      <!-- Окно с сообщениями ОБЩЕЙ флудилки -->
+<div class="messages-container" id="generalMessagesBox">
+  <div class="system-msg">Добро пожаловать в Главный Гараж.</div>
+</div>
+
+<!-- Окно с сообщениями ПРИВАТНОГО чата (по умолчанию скрыто) -->
+<div class="messages-container" id="privateMessagesBox" style="display: none;">
+  <div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>
+</div>
+
       <footer class="chat-input-area">
         <input type="text" id="messageInput" placeholder="Написать в чат..." autocomplete="off">
         <button id="sendBtn">Отправить 🚀</button>

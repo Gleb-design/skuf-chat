@@ -1,33 +1,42 @@
 const socket = io();
 
-// Переменные для хранения данных текущего пользователя
 let myId = null;
 let myUsername = null;
 let currentMode = 'general'; 
 
-// Элементы интерфейса
 const btnGeneral = document.getElementById('btnGeneral');
 const btnPrivate = document.getElementById('btnPrivate');
 const chatTitle = document.getElementById('chatTitle');
-const messagesBox = document.getElementById('messagesBox');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const myUsernameDisplay = document.getElementById('myUsername');
 
-// Новое: получаем личные данные от сервера при старте
+const generalMessagesBox = document.getElementById('generalMessagesBox');
+const privateMessagesBox = document.getElementById('privateMessagesBox');
+
 socket.on('init_user', (data) => {
     myId = data.id;
     myUsername = data.username;
     myUsernameDisplay.textContent = myUsername;
 });
 
-// Клик по кнопке "Общая флудилка"
+// КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ
 btnGeneral.addEventListener('click', () => {
     if (currentMode === 'general') return;
-    location.reload(); 
+    
+    currentMode = 'general';
+    btnPrivate.classList.remove('active');
+    btnGeneral.classList.add('active');
+    chatTitle.textContent = "📢 Общая флудилка (Скуф-Курилка)";
+    
+    generalMessagesBox.classList.remove('hidden');
+    privateMessagesBox.classList.add('hidden');
+    
+    // Сообщаем серверу, что ушли из приватных дел во флудилку
+    socket.emit('leave_private');
 });
 
-// Клик по кнопке "Поиск скуфа"
+// КЛИК: Переключение на ПОИСК СКУФА
 btnPrivate.addEventListener('click', () => {
     if (currentMode !== 'general') return;
     
@@ -35,12 +44,17 @@ btnPrivate.addEventListener('click', () => {
     btnGeneral.classList.remove('active');
     btnPrivate.classList.add('active');
     chatTitle.textContent = "🔍 Ищем свободного мужика для беседы...";
-    messagesBox.innerHTML = '<div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>';
+    
+    generalMessagesBox.classList.add('hidden');
+    privateMessagesBox.classList.remove('hidden');
+    privateMessagesBox.style.display = 'flex';
+    
+    privateMessagesBox.innerHTML = '<div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>';
     
     socket.emit('search_private');
 });
 
-// Обработка отправки сообщения
+// Отправка сообщений
 function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
@@ -58,23 +72,22 @@ messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
 
-// Прием сообщений от сервера (Исправлено!)
+// ПРИЕМ СООБЩЕНИЙ (Теперь работает железно!)
 socket.on('receive_msg', (data) => {
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('message');
     
-    // Проверяем: если senderId совпадает с моим myId, то это наше сообщение
     const isMe = data.senderId === myId;
     
     if (isMe) {
-        msgDiv.classList.add('outgoing'); // Синее сообщение справа
+        msgDiv.classList.add('outgoing');
         msgDiv.innerHTML = `
             <div class="msg-body">
                 <p>${data.text}</p>
             </div>
         `;
     } else {
-        msgDiv.classList.add('incoming'); // Серое сообщение слева с именем автора
+        msgDiv.classList.add('incoming');
         msgDiv.innerHTML = `
             <div class="msg-body">
                 <span class="username">${data.username}</span>
@@ -83,24 +96,33 @@ socket.on('receive_msg', (data) => {
         `;
     }
     
-    messagesBox.appendChild(msgDiv);
-    messagesBox.scrollTop = messagesBox.scrollHeight; 
+    // Смотрим на метку от сервера: куда положить сообщение?
+    if (data.isPrivate) {
+        privateMessagesBox.appendChild(msgDiv);
+        privateMessagesBox.scrollTop = privateMessagesBox.scrollHeight;
+    } else {
+        generalMessagesBox.appendChild(msgDiv);
+        generalMessagesBox.scrollTop = generalMessagesBox.scrollHeight;
+    }
 });
 
-// Собеседник в рулетке нашелся
 socket.on('private_found', (data) => {
     currentMode = 'private';
     chatTitle.textContent = `🎯 Разговор по душам с: ${data.opponent}`;
-    messagesBox.innerHTML = '<div class="system-msg">Собеседник найден! Можно перетирать за жизнь.</div>';
+    privateMessagesBox.innerHTML = '<div class="system-msg">Собеседник найден! Можно перетирать за жизнь.</div>';
 });
 
-// Ожидание в очереди
 socket.on('waiting', () => {
     chatTitle.textContent = "🔍 В очереди в гараж...";
 });
 
-// Собеседник отключился
 socket.on('partner_disconnected', () => {
-    messagesBox.innerHTML += '<div class="system-msg">Собеседник ушел смотреть футбол. Чат завершен.</div>';
+    privateMessagesBox.innerHTML += '<div class="system-msg">Собеседник ушел смотреть футбол. Чат завершен.</div>';
     currentMode = 'general';
+    
+    setTimeout(() => {
+        if (currentMode === 'general') {
+            btnGeneral.click();
+        }
+    }, 3000);
 });
