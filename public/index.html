@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Анонимный чат для Скуфов 🍻</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="user-profile">
+        <span class="avatar">🛋️</span>
+        <div class="profile-info">
+          <h3 id="myUsername">Загрузка...</h3>
+          <p>Статус: В гараже</p>
+        </div>
+      </div>
+      <nav class="chat-modes">
+        <button class="mode-btn active" id="btnGeneral"><span>🍻</span> Общая флудилка</button>
+        <button class="mode-btn" id="btnPrivate"><span>🎯</span> Поиск скуфа (1 на 1)</button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="flush-btn" onclick="location.reload()">🧼 Смыть историю</button>
+      </div>
+    </aside>
+
+    <main class="chat-area">
+      <header class="chat-header">
+        <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
+      </header>
+      <div class="messages-container" id="messagesBox">
+        <div class="system-msg">Добро пожаловать в гараж.</div>
+      </div>
+      <footer class="chat-input-area">
+        <input type="text" id="messageInput" placeholder="Написать в чат..." autocomplete="off">
+        <button id="sendBtn">Отправить 🚀</button>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>

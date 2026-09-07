@@ -1,0 +1,52 @@
+/* Базовый контейнер для сообщений */
+.messages-container {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column; /* Сообщения идут сверху вниз */
+  gap: 12px;
+}
+
+/* Общий стиль для любого сообщения */
+.message {
+  display: flex;
+  width: 100%; /* Занимаем всю ширину контейнера */
+  margin-bottom: 5px;
+}
+
+/* ЧУЖОЕ сообщение (прижимаем ВЛЕВО) */
+.message.incoming {
+  justify-content: flex-start;
+}
+
+.message.incoming .msg-body {
+  background: #32323d;
+  color: #fff;
+  border-radius: 12px 12px 12px 0;
+  max-width: 70%;
+  padding: 10px 14px;
+}
+
+/* ВАШЕ сообщение (прижимаем ВПРАВО) */
+.message.outgoing {
+  justify-content: flex-end; /* Вот это выравнивает по правому краю */
+}
+
+.message.outgoing .msg-body {
+  background: #0ea5e9; /* Голубой/синий цвет */
+  color: #fff;
+  border-radius: 12px 12px 0 12px;
+  max-width: 70%;
+  padding: 10px 14px;
+  text-align: left;
+}
+
+/* Имя пользователя над чужим сообщением */
+.username {
+  display: block;
+  font-size: 12px;
+  color: #ffb74d;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
