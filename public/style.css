@@ -1,25 +1,188 @@
-/* Базовый контейнер для сообщений */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background-color: #1e1e24;
+  color: #e0e0e0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden; /* Запрещаем скроллинг всей страницы браузера */
+}
+
+/* Главный контейнер приложения */
+.app-container {
+  display: flex;
+  width: 95vw;
+  height: 90vh;
+  max-width: 1200px;
+  background: #2a2a32;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Боковая панель */
+.sidebar {
+  width: 300px;
+  background: #212129;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #3a3a46;
+  flex-shrink: 0;
+}
+
+.user-profile {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid #3a3a46;
+}
+
+.avatar { font-size: 32px; }
+.profile-info h3 { font-size: 16px; color: #fff; }
+.profile-info p { font-size: 12px; color: #8a8a98; }
+
+.chat-modes {
+  padding: 20px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  color: #a0a0b0;
+  padding: 12px 15px;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: 0.2s;
+}
+
+.mode-btn:hover, .mode-btn.active {
+  background: #3a3a46;
+  color: #fff;
+}
+
+.sidebar-footer { padding: 15px; }
+.flush-btn {
+  width: 100%;
+  background: #4a2828;
+  color: #ff8888;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.flush-btn:hover { background: #633333; }
+
+/* ======================================================= */
+/* ИСПРАВЛЕННАЯ ЗОНА ЧАТА (ФИКСАЦИЯ ШАПКИ И ПОЛЯ ВВОДА)     */
+/* ======================================================= */
+
+/* Основная зона чата */
+.chat-area {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background: #26262e;
+  height: 100%;       /* Жестко ограничиваем высоту под размер приложения */
+  overflow: hidden;    /* Запрещаем всей этой зоне растягиваться */
+}
+
+/* Шапка чата — всегда намертво вверху */
+.chat-header {
+  padding: 15px 20px;
+  background: #212129;
+  border-bottom: 1px solid #3a3a46;
+  flex-shrink: 0;     /* Запрещаем шапке сжиматься */
+}
+.chat-header h2 { font-size: 18px; color: #fff; }
+
+/* Базовый контейнер для сообщений — скроллится ТОЛЬКО он */
 .messages-container {
   flex-grow: 1;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: auto;   /* Включает прокрутку, когда сообщения не влезают */
   display: flex;
-  flex-direction: column; /* Сообщения идут сверху вниз */
+  flex-direction: column;
   gap: 12px;
 }
 
-/* Общий стиль для любого сообщения */
+/* Вспомогательный класс для скрытия окон */
+.messages-container.hidden {
+  display: none !important;
+}
+
+/* Поле ввода сообщения — всегда намертво внизу */
+.chat-input-area {
+  padding: 20px;
+  background: #212129;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid #3a3a46;
+  flex-shrink: 0;     /* Запрещаем полю ввода сжиматься или улетать вниз */
+}
+
+.chat-input-area input {
+  flex-grow: 1;
+  background: #32323d;
+  border: 1px solid #3a3a46;
+  border-radius: 8px;
+  padding: 12px;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+}
+
+.chat-input-area button {
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  padding: 0 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.chat-input-area button:hover { background: #0284c7; }
+
+/* ======================================================= */
+/* СТИЛИ ДЛЯ САМИХ СООБЩЕНИЙ                               */
+/* ======================================================= */
+
 .message {
   display: flex;
-  width: 100%; /* Занимаем всю ширину контейнера */
+  width: 100%;
   margin-bottom: 5px;
 }
 
-/* ЧУЖОЕ сообщение (прижимаем ВЛЕВО) */
+.system-msg {
+  text-align: center;
+  color: #8a8a98;
+  font-size: 13px;
+  background: #31313d;
+  padding: 6px;
+  border-radius: 20px;
+  align-self: center;
+}
+
+/* ЧУЖОЕ сообщение (влево) */
 .message.incoming {
   justify-content: flex-start;
 }
-
 .message.incoming .msg-body {
   background: #32323d;
   color: #fff;
@@ -28,29 +191,22 @@
   padding: 10px 14px;
 }
 
-/* ВАШЕ сообщение (прижимаем ВПРАВО) */
+/* ВАШЕ сообщение (вправо) */
 .message.outgoing {
-  justify-content: flex-end; /* Вот это выравнивает по правому краю */
+  justify-content: flex-end;
 }
-
 .message.outgoing .msg-body {
-  background: #0ea5e9; /* Голубой/синий цвет */
+  background: #0ea5e9;
   color: #fff;
   border-radius: 12px 12px 0 12px;
   max-width: 70%;
   padding: 10px 14px;
-  text-align: left;
 }
 
-/* Имя пользователя над чужим сообщением */
 .username {
   display: block;
   font-size: 12px;
   color: #ffb74d;
   margin-bottom: 4px;
   font-weight: bold;
-}
-/* Вспомогательный класс для скрытия окон сообщений */
-.messages-container.hidden {
-  display: none !important;
 }
