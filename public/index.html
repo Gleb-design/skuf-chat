@@ -21,15 +21,18 @@
         <button class="mode-btn active" id="btnGeneral"><span>🍻</span> Общая флудилка</button>
         <button class="mode-btn" id="btnPrivate"><span>🎯</span> Поиск скуфа (1 на 1)</button>
       </nav>
-      <div class="sidebar-footer">
-        <button class="flush-btn" onclick="location.reload()">🧼 Смыть историю</button>
-      </div>
+      
     </aside>
 
     <main class="chat-area">
-      <header class="chat-header">
+      <!-- ОБНОВЛЕННАЯ ШАПКА ЧАТА: -->
+    <header class="chat-header">
+      <div class="header-top-line">
         <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
-      </header>
+        <button class="mini-flush-btn" onclick="location.reload()" title="Смыть историю">🧼</button>
+      </div>
+    </header>
+
       <!-- Окно с сообщениями ОБЩЕЙ флудилки -->
 <div class="messages-container" id="generalMessagesBox">
   <div class="system-msg">Добро пожаловать в Главный Гараж.</div>
