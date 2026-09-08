@@ -4,6 +4,13 @@ let myId = null;
 let myUsername = null;
 let currentMode = 'general'; 
 
+// --- ЗВУКОВОЙ ДВИЖОК ---
+const soundOutgoing = new Audio('https://soundjay.com'); 
+const soundIncoming = new Audio('https://soundjay.com'); 
+soundOutgoing.volume = 0.3;
+soundIncoming.volume = 0.5;
+
+// Элементы интерфейса
 const btnGeneral = document.getElementById('btnGeneral');
 const btnPrivate = document.getElementById('btnPrivate');
 const chatTitle = document.getElementById('chatTitle');
@@ -20,19 +27,21 @@ socket.on('init_user', (data) => {
     myUsernameDisplay.textContent = myUsername;
 });
 
-// КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ
+// КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ (БЕЗ БЛОКИРОВОК!)
 btnGeneral.addEventListener('click', () => {
-    if (currentMode === 'general') return;
-    
+    // Меняем режим на общий
     currentMode = 'general';
+    
+    // Переключаем визуальный фокус на кнопках
     btnPrivate.classList.remove('active');
     btnGeneral.classList.add('active');
     chatTitle.textContent = "📢 Общая флудилка (Скуф-Курилка)";
     
+    // Показываем коробку флудилки, скрываем приват
     generalMessagesBox.classList.remove('hidden');
     privateMessagesBox.classList.add('hidden');
     
-    // Сообщаем серверу, что ушли из приватных дел во флудилку
+    // Даем команду серверу вернуть нас в общую комнату
     socket.emit('leave_private');
 });
 
@@ -72,7 +81,7 @@ messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
 
-// ПРИЕМ СООБЩЕНИЙ (Теперь работает железно!)
+// ПРИЕМ СООБЩЕНИЙ
 socket.on('receive_msg', (data) => {
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('message');
@@ -81,11 +90,10 @@ socket.on('receive_msg', (data) => {
     
     if (isMe) {
         msgDiv.classList.add('outgoing');
-        msgDiv.innerHTML = `
-            <div class="msg-body">
-                <p>${data.text}</p>
-            </div>
-        `;
+        msgDiv.innerHTML = `<div class="msg-body"><p>${data.text}</p></div>`;
+        
+        soundOutgoing.currentTime = 0;
+        soundOutgoing.play().catch(err => console.log(err));
     } else {
         msgDiv.classList.add('incoming');
         msgDiv.innerHTML = `
@@ -94,9 +102,11 @@ socket.on('receive_msg', (data) => {
                 <p>${data.text}</p>
             </div>
         `;
+        
+        soundIncoming.currentTime = 0;
+        soundIncoming.play().catch(err => console.log(err));
     }
     
-    // Смотрим на метку от сервера: куда положить сообщение?
     if (data.isPrivate) {
         privateMessagesBox.appendChild(msgDiv);
         privateMessagesBox.scrollTop = privateMessagesBox.scrollHeight;
@@ -116,13 +126,14 @@ socket.on('waiting', () => {
     chatTitle.textContent = "🔍 В очереди в гараж...";
 });
 
+// Собеседник отключился — ТЕПЕРЬ ВСЁ СРАБОТАЕТ ЧЁТКО!
 socket.on('partner_disconnected', () => {
     privateMessagesBox.innerHTML += '<div class="system-msg">Собеседник ушел смотреть футбол. Чат завершен.</div>';
-    currentMode = 'general';
     
+    // Мягко эмулируем клик по работающей кнопке флудилки через 3 секунды
     setTimeout(() => {
-        if (currentMode === 'general') {
-            btnGeneral.click();
+        if (currentMode === 'private') {
+            btnGeneral.click(); 
         }
     }, 3000);
 });

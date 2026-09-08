@@ -10,26 +10,40 @@ app.use(express.static('public'));
 
 // --- БАЗА ИСТИННО СКУФСКИХ КЛИЧЕК И АВАТАРОК ---
 const skufNames = [
-    // Классические имена-погоняла
-    'Михалыч', 'Петрович', 'Иваныч', 'Саня', 'Толян', 'Серёга', 'Лёха', 'Юрич', 'Валера', 'Димон', 'Степаныч',
-    // Суровые дворовые клички
-    'Кабан', 'Седой', 'Шмель', 'Косой', 'Борзый', 'Ворчун', 'Лысый', 'Батя', 'Дюша', 'Шуруп', 'Череп', 'Трактор', 
-    'Сиплый', 'Шашлык', 'Полторашка', 'Глушак', 'Кардан', 'Кирпич', 'Майонез', 'Котлета', 'Вентилятор', 'Чекушка'
+    'Михалыч', 'Петрович', 'Иваныч', 'Саня', 'Толян', 'Серёга', 'Лёха', 'Юрич', 'Валера', 'Димон', 
+    'Кабан', 'Седой', 'Шмель', 'Косой', 'Борзый', 'Ворчун', 'Лысый', 'Батя', 'Дюша', 'Шуруп', 
+    'Череп', 'Трактор', 'Сиплый', 'Шашлык', 'Полторашка', 'Глушак', 'Кардан', 'Кирпич', 'Майонез', 
+    'Котлета', 'Вентилятор', 'Чекушка'
 ];
 
 const skufStatus = [
-    'с завода', 'из гаража', 'на расслабоне', 'Танкист', 'Рыбак', 'с пивком', 'Дальнобой', 'Эксперт', 'у телевизора',
-    'из 3-го подъезда', 'со службы', 'с подработки', 'из шиномонтажки', 'отжавший дрель', 'потерявший пульт', 
-    'купивший незамерзайку', 'ищущий заначку', 'эксперт по диванам', 'ветеран дачи', 'гроза карасей', 'на больничном',
-    'после бани', 'смотрящий футбол', 'забывший пароль', 'сварщик 5 разряда', 'главный по шашлыкам', 'в шлёпанцах'
+    'с завода', 'из гаража', 'на расслабоне', 'Танкист', 'Рыбак', 'с пивком', 'Дальнобой', 'Эксперт', 
+    'у телевизора', 'из 3-го подъезда', 'со службы', 'с подработки', 'из шиномонтажки', 'отжавший дрель', 
+    'потерявший пульт', 'купивший незамерзайку', 'ищущий заначку', 'эксперт по диванам', 'ветеран дачи', 
+    'гроза карасей', 'на больничном', 'после бани', 'смотрящий футбол', 'забывший пароль', 'сварщик 5 разряда', 
+    'главный по шашлыкам', 'в шлёпанцах'
 ];
 
 const skufEmojis = [
     '🍺', '🛋️', '🚜', '🎣', '🍢', '🎮', '🧢', '🥟', '🔧', '📺', '🍖', '🥚', '🥫', '🧦', '🛠️', '🚗', '📻', '📦'
 ];
 
-
 let waitingSkuf = null;
+
+// --- НОВОЕ: ХРАНИЛИЩЕ ИСТОРИИ ФЛУДИЛКИ ---
+let globalMessagesHistory = []; 
+
+// Функция для очистки сообщений старше 24 часов
+function cleanOldMessages() {
+    const now = Date.now();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    // Оставляем только те сообщения, которые были отправлены меньше суток назад
+    globalMessagesHistory = globalMessagesHistory.filter(msg => (now - msg.timestamp) < oneDayInMs);
+}
+
+// Запускаем автоматическую уборку старых сообщений каждые 30 минут
+setInterval(cleanOldMessages, 30 * 60 * 1000);
+
 
 io.on('connection', (socket) => {
     const name = skufNames[Math.floor(Math.random() * skufNames.length)];
@@ -39,22 +53,45 @@ io.on('connection', (socket) => {
     socket.username = `${emoji} ${name} (${status})`;
     socket.emit('init_user', { id: socket.id, username: socket.username });
     
-    // При подключении — сразу во флудилку
     socket.join('general');
 
-    // 1. Логика общей флудилки
+    // НОВОЕ: Как только скуф вошел, отправляем ему всю сохраненную историю за сутки
+    // Перед отправкой на всякий случай чистим массив от просроченных сообщений
+    cleanOldMessages();
+    globalMessagesHistory.forEach((msg) => {
+        socket.emit('receive_msg', {
+            senderId: msg.senderId,
+            username: msg.username,
+            text: msg.text,
+            isPrivate: false
+        });
+    });
+
+    // 1. Логика общей флудилки (Обновлено!)
     socket.on('send_global_msg', (text) => {
-        io.to('general').emit('receive_msg', {
+        const messageData = {
             senderId: socket.id,
             username: socket.username,
             text: text,
-            isPrivate: false // Важная пометка для клиента!
+            isPrivate: false,
+            timestamp: Date.now() // Запоминаем точное время отправки
+        };
+
+        // Сохраняем сообщение в историю сервера
+        globalMessagesHistory.push(messageData);
+
+        // Отправляем его всем в общую флудилку
+        io.to('general').emit('receive_msg', {
+            senderId: messageData.senderId,
+            username: messageData.username,
+            text: messageData.text,
+            isPrivate: messageData.isPrivate
         });
     });
 
     // 2. Логика поиска 1 на 1
     socket.on('search_private', () => {
-        socket.leave('general'); // Уходим из флудилки
+        socket.leave('general');
 
         if (waitingSkuf && waitingSkuf.id !== socket.id) {
             const roomId = `room_${waitingSkuf.id}_${socket.id}`;
@@ -82,12 +119,11 @@ io.on('connection', (socket) => {
                 senderId: socket.id,
                 username: socket.username,
                 text: text,
-                isPrivate: true // Важная пометка для клиента!
+                isPrivate: true
             });
         }
     });
 
-    // Новое: Выход из привата обратно во флудилку
     socket.on('leave_private', () => {
         if (waitingSkuf === socket) waitingSkuf = null;
         
@@ -96,7 +132,7 @@ io.on('connection', (socket) => {
             socket.leave(socket.privateRoom);
             socket.privateRoom = null;
         }
-        socket.join('general'); // Возвращаем в общий гараж
+        socket.join('general');
     });
 
     socket.on('disconnect', () => {
@@ -106,7 +142,6 @@ io.on('connection', (socket) => {
         }
     });
 });
-
 
 const PORT = 3000;
 server.listen(PORT, () => {
