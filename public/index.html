@@ -8,24 +8,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-container">
-    <aside class="sidebar">
-      <div class="user-profile">
-        <span class="avatar">🛋️</span>
-        <div class="profile-info">
-          <h3 id="myUsername">Загрузка...</h3>
-          <p>Статус: В гараже</p>
-        </div>
-      </div>
-      <nav class="chat-modes">
-        <button class="mode-btn active" id="btnGeneral"><span>🍻</span> Общая флудилка</button>
-        <button class="mode-btn" id="btnPrivate"><span>🎯</span> Поиск скуфа (1 на 1)</button>
-      </nav>
-      
-    </aside>
+<div class="app-container">
+  <!-- Боковая (или верхняя на мобилках) панель — теперь ТУТ ТОЛЬКО КНОПКИ -->
+  <aside class="sidebar">
+    <nav class="chat-modes">
+      <button class="mode-btn active" id="btnGeneral"><span>🍻</span> Общая флудилка</button>
+      <button class="mode-btn" id="btnPrivate"><span>🎯</span> Поиск скуфа</button>
+    </nav>
+  </aside>
 
-    <main class="chat-area">
-      <!-- ОБНОВЛЕННАЯ ШАПКА ЧАТА: -->
+  <!-- Основная зона чата -->
+  <main class="chat-area">
+    <!-- Шапка чата -->
     <header class="chat-header">
       <div class="header-top-line">
         <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
@@ -33,22 +27,29 @@
       </div>
     </header>
 
-      <!-- Окно с сообщениями ОБЩЕЙ флудилки -->
-<div class="messages-container" id="generalMessagesBox">
-  <div class="system-msg">Добро пожаловать в Главный Гараж.</div>
-</div>
+    <!-- Окна с сообщениями -->
+    <div class="messages-container" id="generalMessagesBox">
+      <div class="system-msg">Добро пожаловать в Главный Гараж.</div>
+    </div>
 
-<!-- Окно с сообщениями ПРИВАТНОГО чата (по умолчанию скрыто) -->
-<div class="messages-container" id="privateMessagesBox" style="display: none;">
-  <div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>
-</div>
+    <div class="messages-container" id="privateMessagesBox" style="display: none;">
+      <div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>
+    </div>
 
-      <footer class="chat-input-area">
+    <!-- Зона ввода сообщения -->
+    <footer class="chat-input-area">
+      <!-- Новое место для имени пользователя: аккуратная плашка над инпутом -->
+      <div class="user-bottom-profile">
+        <span>Вы вошли как: <strong id="myUsername">Загрузка...</strong></span>
+      </div>
+      
+      <div class="input-row">
         <input type="text" id="messageInput" placeholder="Написать в чат..." autocomplete="off">
         <button id="sendBtn">Отправить 🚀</button>
-      </footer>
-    </main>
-  </div>
+      </div>
+    </footer>
+  </main>
+</div>
 
   <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
   <script src="/socket.io/socket.io.js"></script>
