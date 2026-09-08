@@ -210,3 +210,66 @@ body {
   margin-bottom: 4px;
   font-weight: bold;
 }
+/* --- АДАПТИВНОСТЬ ДЛЯ СМАРТФОНОВ --- */
+@media (max-width: 768px) {
+  /* Перестраиваем приложение из горизонтального в вертикальное */
+  .app-container {
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0; /* На телефоне чат будет на весь экран без рамок */
+  }
+
+  /* Переделываем боковую панель в компактную верхнюю плашку */
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #3a3a46;
+    flex-direction: row; /* Элементы встанут в линию */
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+  }
+
+  /* Скрываем статус "В гараже", чтобы сэкономить место */
+  .profile-info p, .user-profile {
+    padding: 0;
+    border-bottom: none;
+  }
+  .avatar { font-size: 24px; }
+  .profile-info h3 { font-size: 14px; }
+
+  /* Кнопки переключения режимов встают рядышком */
+  .chat-modes {
+    flex-direction: row;
+    padding: 0;
+    gap: 5px;
+    flex-grow: 0;
+  }
+
+  .mode-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  /* Кнопку "Смыть" ужимаем, чтобы не мешалась */
+  .sidebar-footer {
+    padding: 0;
+  }
+  .flush-btn {
+    padding: 8px;
+    font-size: 12px;
+    width: auto;
+  }
+
+  /* Увеличиваем размер текста сообщений и ввода для удобства пальцев */
+  .chat-input-area input {
+    font-size: 16px; /* Защита от автозума в iOS */
+    padding: 10px;
+  }
+  
+  .chat-input-area button {
+    padding: 0 15px;
+  }
+}
