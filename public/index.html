@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Анонимный чат для Скуфов 🍻</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="/manifest.json">
+
 </head>
 <body>
 <div class="app-container">
@@ -54,5 +56,13 @@
   <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('Виджет-система готова!'))
+      .catch((err) => console.log('Сбой PWA:', err));
+  }
+</script>
+
 </body>
 </html>
