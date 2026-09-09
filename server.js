@@ -143,7 +143,8 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 3000;
-server.listen(PORT, () => {
-    console.log(`Гараж открыт! Сервер запущен на http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Гараж открыт на ${PORT}`);
 });
