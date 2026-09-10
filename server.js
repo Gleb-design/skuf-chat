@@ -30,6 +30,29 @@ const skufEmojis = [
 
 let waitingSkuf = null;
 
+
+// --- RATE LIMIT (защита от спама) ---
+const RATE_LIMIT_MAX = 5;            // максимум сообщений
+const RATE_LIMIT_WINDOW_MS = 3000;   // за это окно (в миллисекундах)
+
+// Проверяет, не превышен ли лимит. Возвращает true, если сообщение НАДО ОТКЛОНИТЬ.
+function isRateLimited(socket) {
+    const now = Date.now();
+    // Инициализируем массив, если его ещё нет
+    if (!socket.messageTimestamps) socket.messageTimestamps = [];
+    // Выкидываем из массива всё, что старше окна
+    socket.messageTimestamps = socket.messageTimestamps.filter(
+        (t) => (now - t) < RATE_LIMIT_WINDOW_MS
+    );
+    // Если уже набралось максимум — блокируем
+    if (socket.messageTimestamps.length >= RATE_LIMIT_MAX) {
+        return true;
+    }
+    // Иначе запоминаем текущее сообщение и пропускаем
+    socket.messageTimestamps.push(now);
+    return false;
+}
+
 // --- НОВОЕ: ХРАНИЛИЩЕ ИСТОРИИ ФЛУДИЛКИ ---
 let globalMessagesHistory = []; 
 
@@ -51,6 +74,7 @@ io.on('connection', (socket) => {
     const emoji = skufEmojis[Math.floor(Math.random() * skufEmojis.length)];
     
     socket.username = `${emoji} ${name} (${status})`;
+    socket.messageTimestamps = []; // для rate limit
     socket.emit('init_user', { id: socket.id, username: socket.username });
     
     socket.join('general');
@@ -68,7 +92,13 @@ io.on('connection', (socket) => {
     });
 
     // 1. Логика общей флудилки (Обновлено!)
-    socket.on('send_global_msg', (text) => {
+        socket.on('send_global_msg', (text) => {
+        // Проверяем rate limit
+        if (isRateLimited(socket)) {
+            socket.emit('rate_limited');
+            return;
+        }
+
         const messageData = {
             senderId: socket.id,
             username: socket.username,
@@ -113,7 +143,13 @@ io.on('connection', (socket) => {
     });
 
     // 3. Отправка приватного сообщения
-    socket.on('send_private_msg', (text) => {
+        socket.on('send_private_msg', (text) => {
+        // Проверяем rate limit
+        if (isRateLimited(socket)) {
+            socket.emit('rate_limited');
+            return;
+        }
+
         if (socket.privateRoom) {
             io.to(socket.privateRoom).emit('receive_msg', {
                 senderId: socket.id,

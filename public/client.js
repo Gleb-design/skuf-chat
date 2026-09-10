@@ -162,6 +162,22 @@ socket.on('waiting', () => {
     chatTitle.textContent = "🔍 В очереди в гараж...";
 });
 
+// СЕРВЕР ПРИТОРМОЗИЛ СООБЩЕНИЕ ИЗ-ЗА СПАМА
+socket.on('rate_limited', () => {
+    const warn = document.createElement('div');
+    warn.className = 'system-msg';
+    warn.textContent = '🍺 Э, тормози, скуф! Дай другим написать.';
+    
+    // Куда добавлять — в зависимости от текущего режима
+    if (currentMode === 'private') {
+        privateMessagesBox.appendChild(warn);
+        privateMessagesBox.scrollTop = privateMessagesBox.scrollHeight;
+    } else {
+        generalMessagesBox.appendChild(warn);
+        generalMessagesBox.scrollTop = generalMessagesBox.scrollHeight;
+    }
+});
+
 // Собеседник отключился — ТЕПЕРЬ ВСЁ СРАБОТАЕТ ЧЁТКО!
 socket.on('partner_disconnected', () => {
     privateMessagesBox.innerHTML += '<div class="system-msg">Собеседник ушел смотреть футбол. Чат завершен.</div>';
