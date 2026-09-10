@@ -325,6 +325,27 @@ body {
 }
 
 
+/* --- СЧЁТЧИК ОНЛАЙН --- */
+.online-counter {
+  font-size: 13px;
+  color: #8a8a98;
+  margin-top: 6px;
+  padding-left: 2px;
+}
+
+.online-counter strong {
+  color: #ffb74d;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .online-counter {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+}
+
+
 /* --- ПАНЕЛЬ УПРАВЛЕНИЯ ПРИВАТНЫМ ЧАТОМ (Следующий скуф / Выйти) --- */
 .private-controls {
   display: flex;

@@ -31,6 +31,15 @@ const skufEmojis = [
 let waitingSkuf = null;
 
 
+// --- СЧЁТЧИК ОНЛАЙН ---
+let onlineCount = 0;
+
+// Рассылает всем актуальное число скуфов онлайн
+function broadcastOnlineCount() {
+    io.emit('online_count', onlineCount);
+}
+
+
 // --- RATE LIMIT (защита от спама) ---
 const RATE_LIMIT_MAX = 5;            // максимум сообщений
 const RATE_LIMIT_WINDOW_MS = 3000;   // за это окно (в миллисекундах)
@@ -75,6 +84,9 @@ io.on('connection', (socket) => {
     
     socket.username = `${emoji} ${name} (${status})`;
     socket.messageTimestamps = []; // для rate limit
+        // Счётчик онлайн: +1
+    onlineCount++;
+    broadcastOnlineCount();
     socket.emit('init_user', { id: socket.id, username: socket.username });
     
     socket.join('general');
@@ -171,11 +183,14 @@ io.on('connection', (socket) => {
         socket.join('general');
     });
 
-    socket.on('disconnect', () => {
+        socket.on('disconnect', () => {
         if (waitingSkuf === socket) waitingSkuf = null;
         if (socket.privateRoom) {
             socket.to(socket.privateRoom).emit('partner_disconnected');
         }
+        // Счётчик онлайн: -1
+        onlineCount--;
+        broadcastOnlineCount();
     });
 });
 

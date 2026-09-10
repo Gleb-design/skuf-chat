@@ -7,6 +7,8 @@
   <title>Анонимный чат для Скуфов 🍻</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
 
 </head>
 <body>
@@ -22,13 +24,14 @@
   <!-- Основная зона чата -->
   <main class="chat-area">
     <!-- Шапка чата -->
-    <header class="chat-header">
+        <header class="chat-header">
       <div class="header-top-line">
         <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
         <button class="mini-flush-btn" onclick="location.reload()" title="Смыть историю">🧼</button>
       </div>
+      <div class="online-counter" id="onlineCounter">🍺 Сейчас в гараже: <strong>...</strong></div>
     </header>
-    
+
         <!-- Кнопки управления приватным чатом (появляются только в режиме рулетки) -->
     <div class="private-controls hidden" id="privateControls">
       <button id="btnNextSkuf">🔄 Следующий скуф</button>

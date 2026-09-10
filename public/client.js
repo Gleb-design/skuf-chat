@@ -24,11 +24,19 @@ const privateMessagesBox = document.getElementById('privateMessagesBox');
 const privateControls = document.getElementById('privateControls');
 const btnNextSkuf = document.getElementById('btnNextSkuf');
 const btnCancelSearch = document.getElementById('btnCancelSearch');
+const onlineCounter = document.getElementById('onlineCounter');
 
 socket.on('init_user', (data) => {
     myId = data.id;
     myUsername = data.username;
     myUsernameDisplay.textContent = myUsername;
+});
+
+// Счётчик онлайн — обновляем число в шапке
+socket.on('online_count', (count) => {
+    if (onlineCounter) {
+        onlineCounter.innerHTML = `🍺 Сейчас в гараже: <strong>${count}</strong>`;
+    }
 });
 
 // КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ (БЕЗ БЛОКИРОВОК!)
