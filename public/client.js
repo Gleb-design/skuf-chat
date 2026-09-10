@@ -5,8 +5,8 @@ let myUsername = null;
 let currentMode = 'general'; 
 
 // --- ЗВУКОВОЙ ДВИЖОК ---
-const soundOutgoing = new Audio('https://soundjay.com'); 
-const soundIncoming = new Audio('https://soundjay.com'); 
+const soundOutgoing = new Audio('/click.mp3');
+const soundIncoming = new Audio('/beer.mp3');
 soundOutgoing.volume = 0.3;
 soundIncoming.volume = 0.5;
 
