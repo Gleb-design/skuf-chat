@@ -325,3 +325,57 @@ body {
 }
 
 
+/* --- ПАНЕЛЬ УПРАВЛЕНИЯ ПРИВАТНЫМ ЧАТОМ (Следующий скуф / Выйти) --- */
+.private-controls {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #26262e;
+  border-bottom: 1px solid #3a3a46;
+  flex-shrink: 0;
+}
+
+.private-controls.hidden {
+  display: none !important;
+}
+
+.private-controls button {
+  flex: 1;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+
+#btnNextSkuf {
+  background: #0ea5e9;
+  color: #fff;
+}
+#btnNextSkuf:hover {
+  background: #0284c7;
+}
+
+#btnCancelSearch {
+  background: #3a3a46;
+  color: #e0e0e0;
+}
+#btnCancelSearch:hover {
+  background: #4a4a5a;
+}
+
+/* На мобилках — чуть компактнее */
+@media (max-width: 768px) {
+  .private-controls {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .private-controls button {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+}
+

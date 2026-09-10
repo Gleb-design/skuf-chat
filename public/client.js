@@ -21,6 +21,10 @@ const myUsernameDisplay = document.getElementById('myUsername');
 const generalMessagesBox = document.getElementById('generalMessagesBox');
 const privateMessagesBox = document.getElementById('privateMessagesBox');
 
+const privateControls = document.getElementById('privateControls');
+const btnNextSkuf = document.getElementById('btnNextSkuf');
+const btnCancelSearch = document.getElementById('btnCancelSearch');
+
 socket.on('init_user', (data) => {
     myId = data.id;
     myUsername = data.username;
@@ -42,6 +46,7 @@ btnGeneral.addEventListener('click', () => {
     privateMessagesBox.classList.add('hidden');
     
     // Даем команду серверу вернуть нас в общую комнату
+    hidePrivateControls();
     socket.emit('leave_private');
 });
 
@@ -59,7 +64,8 @@ btnPrivate.addEventListener('click', () => {
     privateMessagesBox.style.display = 'flex';
     
     privateMessagesBox.innerHTML = '<div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>';
-    
+
+    showPrivateControls();
     socket.emit('search_private');
 });
 
@@ -79,6 +85,35 @@ function sendMessage() {
 sendBtn.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
+});
+
+// --- ПОКАЗ/СКРЫТИЕ КНОПОК ПРИВАТНОГО ЧАТА ---
+function showPrivateControls() {
+    privateControls.classList.remove('hidden');
+}
+function hidePrivateControls() {
+    privateControls.classList.add('hidden');
+}
+
+// --- КНОПКА "СЛЕДУЮЩИЙ СКУФ" ---
+btnNextSkuf.addEventListener('click', () => {
+    // Сообщаем серверу: отпустить текущего собеседника
+    socket.emit('leave_private');
+
+    // Переводим UI в режим поиска
+    currentMode = 'searching';
+    chatTitle.textContent = "🔍 Ищем свободного мужика для беседы...";
+    privateMessagesBox.innerHTML = '<div class="system-msg">Меняем скуфа... Налейте пока квасу.</div>';
+
+    // Встаём в очередь заново
+    socket.emit('search_private');
+});
+
+// --- КНОПКА "ВЫЙТИ ВО ФЛУДИЛКУ" ---
+btnCancelSearch.addEventListener('click', () => {
+    if (currentMode === 'private' || currentMode === 'searching') {
+        btnGeneral.click(); // просто эмулируем клик по кнопке общей флудилки
+    }
 });
 
 // ПРИЕМ СООБЩЕНИЙ
@@ -120,6 +155,7 @@ socket.on('private_found', (data) => {
     currentMode = 'private';
     chatTitle.textContent = `🎯 Разговор по душам с: ${data.opponent}`;
     privateMessagesBox.innerHTML = '<div class="system-msg">Собеседник найден! Можно перетирать за жизнь.</div>';
+    showPrivateControls(); // панель остаётся видимой и в активном приватном чате
 });
 
 socket.on('waiting', () => {
