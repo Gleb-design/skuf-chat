@@ -183,6 +183,21 @@ io.on('connection', (socket) => {
         socket.join('general');
     });
 
+        // --- ИНДИКАТОР "СКУФ ПЕЧАТАЕТ..." ---
+    socket.on('typing', () => {
+        // В приватном чате — только собеседнику
+        if (socket.privateRoom) {
+            socket.to(socket.privateRoom).emit('partner_typing', {
+                username: socket.username
+            });
+        } else {
+            // В общей флудилке — всем, кроме себя
+            socket.to('general').emit('partner_typing', {
+                username: socket.username
+            });
+        }
+    });
+
         socket.on('disconnect', () => {
         if (waitingSkuf === socket) waitingSkuf = null;
         if (socket.privateRoom) {

@@ -25,6 +25,7 @@ const privateControls = document.getElementById('privateControls');
 const btnNextSkuf = document.getElementById('btnNextSkuf');
 const btnCancelSearch = document.getElementById('btnCancelSearch');
 const onlineCounter = document.getElementById('onlineCounter');
+const typingIndicator = document.getElementById('typingIndicator');
 
 socket.on('init_user', (data) => {
     myId = data.id;
@@ -93,6 +94,17 @@ function sendMessage() {
 sendBtn.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
+});
+
+// --- ОТПРАВКА "СКУФ ПЕЧАТАЕТ..." ПРИ ВВОДЕ ---
+let lastTypingSent = 0;
+const TYPING_THROTTLE_MS = 1500; // не чаще, чем раз в 1.5 секунды
+
+messageInput.addEventListener('input', () => {
+    const now = Date.now();
+    if (now - lastTypingSent < TYPING_THROTTLE_MS) return;
+    lastTypingSent = now;
+    socket.emit('typing');
 });
 
 // --- ПОКАЗ/СКРЫТИЕ КНОПОК ПРИВАТНОГО ЧАТА ---
@@ -168,6 +180,24 @@ socket.on('private_found', (data) => {
 
 socket.on('waiting', () => {
     chatTitle.textContent = "🔍 В очереди в гараж...";
+});
+
+// --- ПРИЁМ "СКУФ ПЕЧАТАЕТ..." ---
+let typingHideTimer = null;
+
+socket.on('partner_typing', (data) => {
+    if (!typingIndicator) return;
+
+    // Показываем индикатор с ником
+    typingIndicator.textContent = `✍️ ${data.username} печатает...`;
+    typingIndicator.classList.add('visible');
+
+    // Сбрасываем таймер скрытия и запускаем заново
+    if (typingHideTimer) clearTimeout(typingHideTimer);
+    typingHideTimer = setTimeout(() => {
+        typingIndicator.classList.remove('visible');
+        typingIndicator.textContent = '';
+    }, 2000);
 });
 
 // СЕРВЕР ПРИТОРМОЗИЛ СООБЩЕНИЕ ИЗ-ЗА СПАМА

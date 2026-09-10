@@ -346,6 +346,30 @@ body {
 }
 
 
+/* --- ИНДИКАТОР "СКУФ ПЕЧАТАЕТ..." --- */
+.typing-indicator {
+  font-size: 12px;
+  color: #ffb74d;
+  margin-top: 4px;
+  padding-left: 2px;
+  min-height: 16px;   /* резервируем место, чтобы ничего не прыгало */
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.typing-indicator.visible {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .typing-indicator {
+    font-size: 11px;
+    margin-top: 2px;
+  }
+}
+
+
 /* --- ПАНЕЛЬ УПРАВЛЕНИЯ ПРИВАТНЫМ ЧАТОМ (Следующий скуф / Выйти) --- */
 .private-controls {
   display: flex;
