@@ -8,7 +8,7 @@
 body {
   background-color: #1e1e24;
   color: #e0e0e0;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -217,7 +217,7 @@ body {
   .app-container {
     flex-direction: column;
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     border-radius: 0;
   }
 
