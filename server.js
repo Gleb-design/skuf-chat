@@ -183,6 +183,42 @@ io.on('connection', (socket) => {
         socket.join('general');
     });
 
+    // --- "СЛЕДУЮЩИЙ СКУФ" — сбросить собеседника и искать нового ---
+    socket.on('next_skuf', () => {
+        // Если мы были в очереди — выходим из неё
+        if (waitingSkuf === socket) waitingSkuf = null;
+
+        // Прощаемся с текущим собеседником (если он есть)
+        if (socket.privateRoom) {
+            socket.to(socket.privateRoom).emit('partner_disconnected');
+            socket.leave(socket.privateRoom);
+            socket.privateRoom = null;
+        }
+
+        // Покидаем general — мы уходим в рулетку
+        socket.leave('general');
+
+        // Теперь — логика как в search_private: если кто-то уже ждёт, соединяемся
+        if (waitingSkuf && waitingSkuf.id !== socket.id) {
+            const roomId = `room_${waitingSkuf.id}_${socket.id}`;
+
+            socket.join(roomId);
+            waitingSkuf.join(roomId);
+
+            socket.privateRoom = roomId;
+            waitingSkuf.privateRoom = roomId;
+
+            socket.emit('private_found', { opponent: waitingSkuf.username });
+            waitingSkuf.emit('private_found', { opponent: socket.username });
+
+            waitingSkuf = null;
+        } else {
+            // Никого нет — встаём в очередь
+            waitingSkuf = socket;
+            socket.emit('waiting');
+        }
+    });
+
         // --- ИНДИКАТОР "СКУФ ПЕЧАТАЕТ..." ---
     socket.on('typing', () => {
         // В приватном чате — только собеседнику

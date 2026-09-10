@@ -117,16 +117,16 @@ function hidePrivateControls() {
 
 // --- КНОПКА "СЛЕДУЮЩИЙ СКУФ" ---
 btnNextSkuf.addEventListener('click', () => {
-    // Сообщаем серверу: отпустить текущего собеседника
-    socket.emit('leave_private');
+    // Сообщаем серверу: отпустить текущего собеседника и встать в очередь заново
+    socket.emit('next_skuf');
 
     // Переводим UI в режим поиска
     currentMode = 'searching';
     chatTitle.textContent = "🔍 Ищем свободного мужика для беседы...";
     privateMessagesBox.innerHTML = '<div class="system-msg">Меняем скуфа... Налейте пока квасу.</div>';
 
-    // Встаём в очередь заново
-    socket.emit('search_private');
+    // Панель кнопок остаётся видимой (мы всё ещё в рулетке)
+    showPrivateControls();
 });
 
 // --- КНОПКА "ВЫЙТИ ВО ФЛУДИЛКУ" ---
