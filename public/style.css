@@ -99,8 +99,9 @@ body {
   display: flex;
   flex-direction: column;
   background: #26262e;
-  height: 100%;       /* Жестко ограничиваем высоту под размер приложения */
-  overflow: hidden;    /* Запрещаем всей этой зоне растягиваться */
+  height: 100%;
+  overflow: hidden;
+  position: relative; /* якорь для декораций и тем */
 }
 
 /* Шапка чата — всегда намертво вверху */
@@ -113,13 +114,540 @@ body {
 .chat-header h2 { font-size: 18px; color: #fff; }
 
 /* Базовый контейнер для сообщений — скроллится ТОЛЬКО он */
-.messages-container {
+.messages-wrapper {
   flex-grow: 1;
+  position: relative; /* якорь для декораций */
+  overflow: hidden;   /* обрезаем всё, что вылезает */
+}
+
+.messages-container {
+  height: 100%;
   padding: 20px;
-  overflow-y: auto;   /* Включает прокрутку, когда сообщения не влезают */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  z-index: 3;
+  background: transparent;
+}
+
+/* ======================================================= */
+/* ТЕМА: КУРИЛКА В ГАРАЖЕ (общая флудилка) v3              */
+/* Селектор теперь .chat-area.theme-general                */
+/* ======================================================= */
+
+.chat-area.theme-general {
+  position: relative;
+  background-color: #2a1a14;
+  background-image:
+    /* тёплое затемнение сверху и снизу */
+    linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.55) 100%),
+    /* пятна света от ламп */
+    radial-gradient(ellipse 240px 120px at 50% 60px, rgba(255, 200, 100, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 180px 100px at 18% 80px, rgba(255, 190, 90, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 200px 110px at 82% 70px, rgba(255, 200, 110, 0.14) 0%, transparent 70%),
+    /* кирпичная кладка */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><rect width='80' height='40' fill='%234a2018'/><rect x='1' y='1' width='38' height='18' fill='%236b2f22'/><rect x='41' y='1' width='38' height='18' fill='%235e2a1e'/><rect x='-19' y='21' width='38' height='18' fill='%235e2a1e'/><rect x='21' y='21' width='38' height='18' fill='%236b2f22'/><rect x='61' y='21' width='38' height='18' fill='%235e2a1e'/></svg>");
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 80px 40px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-position: center, center, center, center, top;
+}
+
+/* --- 3 ЛАМПЫ (как .skuf-decor, чтобы позиционировались от .messages-wrapper) --- */
+.skuf-decor.lamp1,
+.skuf-decor.lamp2,
+.skuf-decor.lamp3 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Лампа 1 — центр */
+.skuf-decor.lamp1 {
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle, #fff8d0 0%, #ffcc44 40%, #d48a1a 100%);
+  box-shadow:
+    0 0 16px 5px rgba(255, 200, 80, 0.60),
+    0 0 46px 14px rgba(255, 160, 40, 0.30);
+  animation: lampFlicker 3.5s infinite ease-in-out;
+}
+
+/* Лампа 2 — слева */
+.skuf-decor.lamp2 {
+  top: 22px;
+  left: 18%;
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle, #fff5c0 0%, #ffb833 45%, #b8741a 100%);
+  box-shadow:
+    0 0 12px 4px rgba(255, 180, 60, 0.55),
+    0 0 32px 10px rgba(255, 150, 40, 0.25);
+  animation: lampFlicker 4.2s infinite ease-in-out;
+  animation-delay: -1.5s;
+}
+
+/* Лампа 3 — справа, чуть выше и меньше */
+.skuf-decor.lamp3 {
+  top: 18px;
+  right: 22%;
+  width: 11px;
+  height: 11px;
+  background: radial-gradient(circle, #fff5c0 0%, #ffbb33 45%, #b87a1a 100%);
+  box-shadow:
+    0 0 13px 4px rgba(255, 190, 70, 0.55),
+    0 0 36px 11px rgba(255, 160, 40, 0.22);
+  animation: lampFlicker 4.8s infinite ease-in-out;
+  animation-delay: -2.7s;
+}
+
+@keyframes lampFlicker {
+  0%, 100%  { opacity: 0.95; }
+  46%       { opacity: 1; }
+  48%       { opacity: 0.72; }
+  50%       { opacity: 1; }
+  52%       { opacity: 0.88; }
+}
+
+/* --- ДЕКОРАЦИИ (плакат, ящик, дым, стол) --- */
+/* Живут в .chat-area, поверх фона, под сообщениями */
+.skuf-decor {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Плакат */
+.skuf-decor.poster {
+  top: 70px;
+  left: 20px;
+  width: 60px;
+  height: 80px;
+  background: linear-gradient(180deg, #d8c88a 0%, #b8a868 100%);
+  border: 2px solid #5a4a2a;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.15);
+  transform: rotate(-2deg);
+}
+.skuf-decor.poster::before {
+  content: '🍺';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  opacity: 0.85;
+}
+.skuf-decor.poster::after {
+  content: 'ГАРАЖ';
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: bold;
+  color: #3a2a10;
+  letter-spacing: 1px;
+}
+
+/* Ящик с инструментами — на столе справа */
+  .skuf-decor.toolbox {
+    bottom: 40px;
+    right: 24px;
+    width: 70px;
+    height: 40px;
+    background: linear-gradient(180deg, #8a5a2a 0%, #5a3a18 100%);
+    border-radius: 4px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.6), inset 0 -4px 0 rgba(0,0,0,0.3);
+  }
+.skuf-decor.toolbox::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 6px;
+  background: #3a2a18;
+  border-radius: 3px 3px 0 0;
+}
+.skuf-decor.toolbox::after {
+  content: '🔧';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+/* Дым от сигареты — тонкая струйка, поднимается */
+/* Дым от сигареты — крупнее, заметнее, поднимается */
+.skuf-decor.smoke {
+  bottom: 50px;
+  left: 30%;
+  width: 16px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.45) 0%, rgba(200, 200, 200, 0.20) 40%, transparent 75%);
+  filter: blur(3px);
+  animation: smokeRise 7s infinite ease-in-out;
+}
+.skuf-decor.smoke::before,
+.skuf-decor.smoke::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.40) 0%, rgba(200, 200, 200, 0.15) 40%, transparent 75%);
+  filter: blur(3px);
+}
+.skuf-decor.smoke::before {
+  top: -22px;
+  left: -8px;
+  width: 22px;
+  height: 30px;
+  animation: smokeRise 7s infinite ease-in-out;
+  animation-delay: -2.3s;
+}
+.skuf-decor.smoke::after {
+  top: -40px;
+  left: 6px;
+  width: 18px;
+  height: 26px;
+  animation: smokeRise 7s infinite ease-in-out;
+  animation-delay: -4.6s;
+}
+
+/* --- Курилка: 2-й дым (справа) --- */
+.skuf-decor.smoke2 {
+  bottom: 55px;
+  right: 25%;
+  width: 14px;
+  height: 55px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.40) 0%, rgba(200, 200, 200, 0.18) 40%, transparent 75%);
+  filter: blur(3px);
+  animation: smokeRise 8s infinite ease-in-out;
+  animation-delay: -3s;
+}
+.skuf-decor.smoke2::before,
+.skuf-decor.smoke2::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.35) 0%, rgba(200, 200, 200, 0.14) 40%, transparent 75%);
+  filter: blur(3px);
+}
+.skuf-decor.smoke2::before {
+  top: -20px;
+  left: -7px;
+  width: 20px;
+  height: 28px;
+  animation: smokeRise 8s infinite ease-in-out;
+  animation-delay: -2.6s;
+}
+.skuf-decor.smoke2::after {
+  top: -36px;
+  left: 5px;
+  width: 16px;
+  height: 24px;
+  animation: smokeRise 8s infinite ease-in-out;
+  animation-delay: -5.2s;
+}
+
+/* --- Приват: дым 1 (слева) --- */
+.skuf-decor.smoke-p1 {
+  bottom: 50px;
+  left: 22%;
+  width: 15px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.38) 0%, rgba(200, 200, 200, 0.16) 40%, transparent 75%);
+  filter: blur(3px);
+  animation: smokeRise 7.5s infinite ease-in-out;
+}
+.skuf-decor.smoke-p1::before,
+.skuf-decor.smoke-p1::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.33) 0%, rgba(200, 200, 200, 0.13) 40%, transparent 75%);
+  filter: blur(3px);
+}
+.skuf-decor.smoke-p1::before {
+  top: -21px;
+  left: -7px;
+  width: 20px;
+  height: 28px;
+  animation: smokeRise 7.5s infinite ease-in-out;
+  animation-delay: -2.5s;
+}
+.skuf-decor.smoke-p1::after {
+  top: -38px;
+  left: 5px;
+  width: 16px;
+  height: 24px;
+  animation: smokeRise 7.5s infinite ease-in-out;
+  animation-delay: -5s;
+}
+
+/* --- Приват: дым 2 (справа) --- */
+.skuf-decor.smoke-p2 {
+  bottom: 55px;
+  right: 28%;
+  width: 13px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.38) 0%, rgba(200, 200, 200, 0.16) 40%, transparent 75%);
+  filter: blur(3px);
+  animation: smokeRise 8.5s infinite ease-in-out;
+  animation-delay: -4s;
+}
+.skuf-decor.smoke-p2::before,
+.skuf-decor.smoke-p2::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.33) 0%, rgba(200, 200, 200, 0.13) 40%, transparent 75%);
+  filter: blur(3px);
+}
+.skuf-decor.smoke-p2::before {
+  top: -19px;
+  left: -6px;
+  width: 18px;
+  height: 26px;
+  animation: smokeRise 8.5s infinite ease-in-out;
+  animation-delay: -2.8s;
+}
+.skuf-decor.smoke-p2::after {
+  top: -34px;
+  left: 5px;
+  width: 15px;
+  height: 22px;
+  animation: smokeRise 8.5s infinite ease-in-out;
+  animation-delay: -5.7s;
+}
+
+@keyframes smokeRise {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.7); }
+  20%  { opacity: 0.75; }
+  60%  { opacity: 0.45; }
+  100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+}
+
+/* Стол — деревянная кромка снизу */
+.skuf-decor.table {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 26px;
+  background: linear-gradient(180deg,
+    #6a3d1c 0%,
+    #8a5228 30%,
+    #6a3d1c 60%,
+    #3a2010 100%
+  );
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,200,120,0.15);
+  border-top: 1px solid #a06a38;
+}
+.skuf-decor.table::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(90deg,
+    rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 3px,
+    transparent 3px, transparent 8px
+  );
+}
+
+
+/* ======================================================= */
+/* ТЕМА: ЛАМПОВЫЙ УГОЛ (приватный чат)                     */
+/* ======================================================= */
+
+/* Фон: ковёр на стене + тёплое освещение + барная стойка снизу */
+.messages-wrapper.theme-private {
+  position: relative;
+  background-color: #2a1f18;
+  background-image:
+    /* барная стойка снизу — деревянная полоса */
+    linear-gradient(0deg,
+      rgba(60, 35, 20, 0.95) 0%,
+      rgba(80, 48, 28, 0.95) 3%,
+      rgba(60, 35, 20, 0.95) 6%,
+      transparent 6%
+    ),
+    /* мягкое затемнение по бокам, чтобы сообщения читались */
+    linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.30) 50%, rgba(0,0,0,0.50) 100%),
+    /* орнамент ковра (SVG-паттерн, полосой сверху) */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><rect width='60' height='60' fill='%235a1f1a'/><path d='M0 30 L30 0 L60 30 L30 60 Z' fill='%237a2a22'/><path d='M15 30 L30 15 L45 30 L30 45 Z' fill='%23a03a2a'/><circle cx='30' cy='30' r='4' fill='%23e0a040'/></svg>"),
+    /* базовый тёплый фон */
+    linear-gradient(180deg, #3a2418 0%, #2a1a12 100%);
+  background-size: 100% 100%, 100% 100%, 60px 60px, 100% 100%;
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+  background-position: bottom, center, top, center;
+}
+
+/* Мягкий тёплый "абажур" слева сверху — имитация настольной лампы */
+.messages-wrapper.theme-private::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 200, 120, 0.20) 0%, rgba(255, 180, 90, 0.08) 40%, transparent 70%);
+  animation: lampGlow 5s infinite ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes lampGlow {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+
+/* --- ПРИВАТНЫЙ ДЕКОР: барная стойка + бутылки + стакан --- */
+
+/* Барная стойка — дерево + глянец */
+.skuf-decor.bar-counter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  background: linear-gradient(180deg,
+    #8a5a2a 0%,
+    #b87a3a 15%,
+    #a06828 40%,
+    #6a3d1c 70%,
+    #3a2010 100%
+  );
+  box-shadow:
+    0 -2px 6px rgba(255, 200, 120, 0.25),
+    0 -6px 20px rgba(0,0,0,0.7),
+    inset 0 2px 0 rgba(255, 220, 150, 0.35),
+    inset 0 -6px 8px rgba(0,0,0,0.4);
+  border-top: 1px solid #c89a5a;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Блеск на стойке — тонкая полоска отражения */
+.skuf-decor.bar-counter::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 220, 150, 0.35) 20%,
+    rgba(255, 240, 200, 0.55) 50%,
+    rgba(255, 220, 150, 0.35) 80%,
+    transparent 100%
+  );
+  filter: blur(1px);
+}
+
+/* Бутылка 1 (слева) */
+.skuf-decor.bottle1 {
+  position: absolute;
+  bottom: 40px;
+  left: 12%;
+  width: 14px;
+  height: 38px;
+  background: linear-gradient(180deg,
+    #2a1a10 0%,
+    #1a0f08 30%,
+    #3a2418 60%,
+    #1a0f08 100%
+  );
+  border-radius: 3px 3px 2px 2px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6), inset -2px 0 3px rgba(255,180,90,0.15);
+  z-index: 2;
+  pointer-events: none;
+}
+.skuf-decor.bottle1::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 12px;
+  background: linear-gradient(180deg, #3a2418 0%, #1a0f08 100%);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Бутылка 2 (справа) */
+.skuf-decor.bottle2 {
+  position: absolute;
+  bottom: 40px;
+  right: 14%;
+  width: 16px;
+  height: 34px;
+  background: linear-gradient(180deg,
+    #2a1a10 0%,
+    #1a0f08 30%,
+    #3a2418 60%,
+    #1a0f08 100%
+  );
+  border-radius: 3px 3px 2px 2px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6), inset -2px 0 3px rgba(255,180,90,0.15);
+  z-index: 2;
+  pointer-events: none;
+}
+.skuf-decor.bottle2::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 7px;
+  height: 11px;
+  background: linear-gradient(180deg, #3a2418 0%, #1a0f08 100%);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Стакан (центр) — силуэт, полупрозрачный */
+.skuf-decor.glass {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 22px;
+  background: linear-gradient(180deg,
+    rgba(255, 220, 160, 0.20) 0%,
+    rgba(255, 200, 120, 0.10) 50%,
+    rgba(255, 180, 90, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 220, 160, 0.30);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: inset 0 -4px 6px rgba(255, 180, 90, 0.15);
+  z-index: 2;
+  pointer-events: none;
+}
+.skuf-decor.glass::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 220, 160, 0.35);
 }
 
 /* Вспомогательный класс для скрытия окон */
@@ -427,3 +955,45 @@ body {
   }
 }
 
+
+/* ======================================================= */
+/* УПРАВЛЕНИЕ ВИДИМОСТЬЮ ДЕКОРАЦИЙ ПО ТЕМАМ                */
+/* ======================================================= */
+
+/* ВАЖНО: все декорации СКРЫТЫ по умолчанию.
+   Показываются только при явном классе темы на .messages-wrapper.
+   Это исключает "мигание" при загрузке и переключении. */
+
+.skuf-decor {
+  display: none;
+}
+
+/* Курилочные декорации — показываем в курилке */
+.messages-wrapper.theme-general .skuf-decor.lamp1,
+.messages-wrapper.theme-general .skuf-decor.lamp2,
+.messages-wrapper.theme-general .skuf-decor.lamp3,
+.messages-wrapper.theme-general .skuf-decor.smoke,
+.messages-wrapper.theme-general .skuf-decor.smoke2,
+.messages-wrapper.theme-general .skuf-decor.table {
+  display: block;
+}
+
+/* Приватные декорации — показываем в привате */
+.messages-wrapper.theme-private .skuf-decor.bar-counter,
+.messages-wrapper.theme-private .skuf-decor.bottle1,
+.messages-wrapper.theme-private .skuf-decor.bottle2,
+.messages-wrapper.theme-private .skuf-decor.glass,
+.messages-wrapper.theme-private .skuf-decor.smoke-p1,
+.messages-wrapper.theme-private .skuf-decor.smoke-p2 {
+  display: block;
+}
+
+/* ======================================================= */
+/* ФИКС: ЛАМПЫ ПОВЕРХ СООБЩЕНИЙ                            */
+/* ======================================================= */
+
+.messages-wrapper.theme-general .skuf-decor.lamp1,
+.messages-wrapper.theme-general .skuf-decor.lamp2,
+.messages-wrapper.theme-general .skuf-decor.lamp3 {
+  z-index: 50;
+}

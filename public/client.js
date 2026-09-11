@@ -3,6 +3,8 @@ const socket = io();
 let myId = null;
 let myUsername = null;
 let currentMode = 'general'; 
+// --- ТЕМА ПО УМОЛЧАНИЮ: КУРИЛКА ---
+// При загрузке мы сразу в общей флудилке, значит на generalMessagesBox — тема курилки
 
 // --- ЗВУКОВОЙ ДВИЖОК ---
 const soundOutgoing = new Audio('/click.mp3');
@@ -20,6 +22,46 @@ const myUsernameDisplay = document.getElementById('myUsername');
 
 const generalMessagesBox = document.getElementById('generalMessagesBox');
 const privateMessagesBox = document.getElementById('privateMessagesBox');
+const chatArea = document.querySelector('.chat-area');
+const messagesWrapper = document.querySelector('.messages-wrapper');
+// СРАЗУ навешиваем курилку на .messages-wrapper, ДО вставки декораций,
+// чтобы при загрузке ничего не мигнуло
+if (messagesWrapper) messagesWrapper.classList.add('theme-general');
+
+// --- ТЕМЫ И ДЕКОРАЦИИ ---
+// Тема вешается на .chat-area, потому что декорации (плакат, ящик, дым, стол)
+// живут там же и позиционируются относительно всей области чата, а не скролла.
+chatArea.classList.add('theme-general');
+
+// --- ДЕКОРАЦИИ КУРИЛКИ ---
+// Вставляем один раз при загрузке. Живут поверх фона, под сообщениями.
+// Ссылка на обёртку — нужна для декораций
+
+
+// --- ДЕКОРАЦИИ: курилка + приват, оба набора сразу ---
+// Видимость управляется CSS-классами theme-general / theme-private
+function addAllDecor() {
+    if (!messagesWrapper) return;
+    if (messagesWrapper.querySelector('.skuf-decor')) return;
+
+    // Курилочные декорации (2 дыма)
+    const generalDecor = ['lamp1', 'lamp2', 'lamp3', 'smoke', 'smoke2', 'table'];
+    generalDecor.forEach((name) => {
+        const el = document.createElement('div');
+        el.className = `skuf-decor ${name}`;
+        messagesWrapper.appendChild(el);
+    });
+
+    // Приватные декорации (2 дыма)
+    const privateDecor = ['bar-counter', 'bottle1', 'bottle2', 'glass', 'smoke-p1', 'smoke-p2'];
+    privateDecor.forEach((name) => {
+        const el = document.createElement('div');
+        el.className = `skuf-decor ${name}`;
+        messagesWrapper.appendChild(el);
+    });
+}
+addAllDecor();
+
 
 const privateControls = document.getElementById('privateControls');
 const btnNextSkuf = document.getElementById('btnNextSkuf');
@@ -41,7 +83,7 @@ socket.on('online_count', (count) => {
 });
 
 // КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ (БЕЗ БЛОКИРОВОК!)
-btnGeneral.addEventListener('click', () => {
+    btnGeneral.addEventListener('click', () => {
     // Меняем режим на общий
     currentMode = 'general';
     
@@ -53,6 +95,12 @@ btnGeneral.addEventListener('click', () => {
     // Показываем коробку флудилки, скрываем приват
     generalMessagesBox.classList.remove('hidden');
     privateMessagesBox.classList.add('hidden');
+
+    // Переключаем тему: курилка (на .chat-area и .messages-wrapper)
+    chatArea.classList.add('theme-general');
+    chatArea.classList.remove('theme-private');
+    messagesWrapper.classList.add('theme-general');
+    messagesWrapper.classList.remove('theme-private');
     
     // Даем команду серверу вернуть нас в общую комнату
     hidePrivateControls();
@@ -60,7 +108,7 @@ btnGeneral.addEventListener('click', () => {
 });
 
 // КЛИК: Переключение на ПОИСК СКУФА
-btnPrivate.addEventListener('click', () => {
+    btnPrivate.addEventListener('click', () => {
     if (currentMode !== 'general') return;
     
     currentMode = 'searching';
@@ -71,6 +119,12 @@ btnPrivate.addEventListener('click', () => {
     generalMessagesBox.classList.add('hidden');
     privateMessagesBox.classList.remove('hidden');
     privateMessagesBox.style.display = 'flex';
+
+    // Переключаем тему: ламповый угол (на .chat-area и .messages-wrapper)
+    chatArea.classList.add('theme-private');
+    chatArea.classList.remove('theme-general');
+    messagesWrapper.classList.add('theme-private');
+    messagesWrapper.classList.remove('theme-general');
     
     privateMessagesBox.innerHTML = '<div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>';
 
