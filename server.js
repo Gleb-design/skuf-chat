@@ -8,6 +8,7 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+
 // --- БАЗА ИСТИННО СКУФСКИХ КЛИЧЕК И АВАТАРОК ---
 const skufNames = [
     'Михалыч', 'Петрович', 'Иваныч', 'Саня', 'Толян', 'Серёга', 'Лёха', 'Юрич', 'Валера', 'Димон', 
@@ -27,6 +28,46 @@ const skufStatus = [
 const skufEmojis = [
     '🍺', '🛋️', '🚜', '🎣', '🍢', '🎮', '🧢', '🥟', '🔧', '📺', '🍖', '🥚', '🥫', '🧦', '🛠️', '🚗', '📻', '📦'
 ];
+
+// --- СТОП-ЛИСТ РЕКЛАМЫ (мат НЕ фильтруем — это часть атмосферы) ---
+const BAN_PATTERNS = [
+    /t\.me\//i,
+    /telegram\.me\//i,
+    /\bказино\b/i,
+    /\bставки\b/i,
+    /\bбукмекер/i,
+    /\bзаработ(ок|ать|ай)\b/i,
+    /\bкрипт(а|у|ы|ой|овалют)/i,
+    /\bbitcoin\b/i,
+    /\bбеттинг\b/i,
+    /1xbet/i,
+    /mostbet/i,
+    /\bинвест(ируй|иции)\b/i,
+    /\bпассивный доход\b/i,
+];
+
+function containsAds(text) {
+    return BAN_PATTERNS.some((re) => re.test(text));
+}
+
+// --- АНТИФЛУД ПОВТОРОВ: 3 одинаковых сообщения за 30 секунд ---
+const REPEAT_WINDOW_MS = 30 * 1000;
+const REPEAT_MAX = 3;
+
+function isRepeated(socket, text) {
+    const now = Date.now();
+    if (!socket.recentMessages) socket.recentMessages = [];
+    // чистим старые
+    socket.recentMessages = socket.recentMessages.filter(
+        (m) => (now - m.timestamp) < REPEAT_WINDOW_MS
+    );
+    // считаем сколько раз это же самое уже было
+    const sameCount = socket.recentMessages.filter((m) => m.text === text).length;
+    if (sameCount >= REPEAT_MAX) return true;
+    // записываем
+    socket.recentMessages.push({ text, timestamp: now });
+    return false;
+}
 
 let waitingSkuf = null;
 
@@ -111,6 +152,18 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Проверка на рекламу
+        if (containsAds(text)) {
+            socket.emit('msg_blocked', { reason: 'ads' });
+            return;
+        }
+
+        // Проверка на повторы
+        if (isRepeated(socket, text)) {
+            socket.emit('msg_blocked', { reason: 'repeat' });
+            return;
+        }
+
         const messageData = {
             senderId: socket.id,
             username: socket.username,
@@ -162,7 +215,20 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Проверка на рекламу
+        if (containsAds(text)) {
+            socket.emit('msg_blocked', { reason: 'ads' });
+            return;
+        }
+
+        // Проверка на повторы
+        if (isRepeated(socket, text)) {
+            socket.emit('msg_blocked', { reason: 'repeat' });
+            return;
+        }
+
         if (socket.privateRoom) {
+            
             io.to(socket.privateRoom).emit('receive_msg', {
                 senderId: socket.id,
                 username: socket.username,

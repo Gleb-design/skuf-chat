@@ -216,6 +216,29 @@ socket.on('rate_limited', () => {
     }
 });
 
+// СЕРВЕР ЗАБЛОКИРОВАЛ СООБЩЕНИЕ (реклама или повторы)
+socket.on('msg_blocked', (data) => {
+    const warn = document.createElement('div');
+    warn.className = 'system-msg';
+
+    if (data.reason === 'ads') {
+        warn.textContent = '🚫 Реклама тут не в почёте, скуф. Без ссылок и казино.';
+    } else if (data.reason === 'repeat') {
+        warn.textContent = '🍺 Хватит повторять одно и то же, скуф!';
+    } else {
+        warn.textContent = '🚫 Сообщение заблокировано.';
+    }
+
+    // Куда добавлять — в зависимости от текущего режима
+    if (currentMode === 'private') {
+        privateMessagesBox.appendChild(warn);
+        privateMessagesBox.scrollTop = privateMessagesBox.scrollHeight;
+    } else {
+        generalMessagesBox.appendChild(warn);
+        generalMessagesBox.scrollTop = generalMessagesBox.scrollHeight;
+    }
+});
+
 // Собеседник отключился — ТЕПЕРЬ ВСЁ СРАБОТАЕТ ЧЁТКО!
 socket.on('partner_disconnected', () => {
     privateMessagesBox.innerHTML += '<div class="system-msg">Собеседник ушел смотреть футбол. Чат завершен.</div>';
