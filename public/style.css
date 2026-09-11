@@ -174,9 +174,12 @@ body {
   color: #8a8a98;
   font-size: 13px;
   background: #31313d;
-  padding: 6px;
+  padding: 6px 14px;
   border-radius: 20px;
   align-self: center;
+  max-width: 80%;
+  margin: 0 auto;
+  word-break: break-word;
 }
 
 /* ЧУЖОЕ сообщение (влево) */
