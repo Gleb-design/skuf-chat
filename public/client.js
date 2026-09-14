@@ -45,8 +45,8 @@ function addAllDecor() {
     if (!messagesWrapper) return;
     if (messagesWrapper.querySelector('.skuf-decor')) return;
 
-    // Курилочные декорации (2 дыма)
-    const generalDecor = ['lamp1', 'lamp2', 'lamp3', 'smoke', 'smoke2', 'table'];
+    // Курилочные декорации (2 дыма + телевизор + свечение от него)
+    const generalDecor = ['lamp1', 'lamp2', 'lamp3', 'smoke', 'smoke2', 'table', 'tv-antenna', 'tv', 'tv-glow'];
     generalDecor.forEach((name) => {
         const el = document.createElement('div');
         el.className = `skuf-decor ${name}`;
@@ -61,6 +61,7 @@ function addAllDecor() {
         messagesWrapper.appendChild(el);
     });
 }
+
 addAllDecor();
 
 
