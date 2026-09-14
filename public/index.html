@@ -42,10 +42,14 @@
   <main class="chat-area">
     <!-- Шапка чата -->
     <header class="chat-header">
-      <div class="header-top-line">
+            <div class="header-top-line">
         <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
-        <button class="mini-flush-btn" onclick="location.reload()" title="Смыть историю">🧼</button>
+        <div class="header-actions">
+          <button class="mini-donate-btn" id="btnDonate" title="Скинуть скуфу на пиво">🍺</button>
+          <button class="mini-flush-btn" onclick="location.reload()" title="Смыть историю">🧼</button>
+        </div>
       </div>
+      
       <div class="online-counter" id="onlineCounter">🍺 Сейчас в гараже: <strong>...</strong></div>
       <div class="typing-indicator" id="typingIndicator"></div>
     </header>

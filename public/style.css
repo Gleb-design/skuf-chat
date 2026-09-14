@@ -855,6 +855,29 @@ body {
   cursor: pointer;
 }
 
+/* --- ДОНАТ-КНОПКА В ШАПКЕ (🍺) --- */
+.header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mini-donate-btn {
+  background: #3a2e18;
+  border: 1px solid #7a5a1a;
+  font-size: 16px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.mini-donate-btn:hover {
+  background: #5a4518;
+  transform: scale(1.08);
+}
+
 
 /* --- СЧЁТЧИК ОНЛАЙН --- */
 .online-counter {

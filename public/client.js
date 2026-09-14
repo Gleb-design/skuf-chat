@@ -19,6 +19,7 @@ const chatTitle = document.getElementById('chatTitle');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const myUsernameDisplay = document.getElementById('myUsername');
+const btnDonate = document.getElementById('btnDonate');
 
 const generalMessagesBox = document.getElementById('generalMessagesBox');
 const privateMessagesBox = document.getElementById('privateMessagesBox');
@@ -189,6 +190,13 @@ btnCancelSearch.addEventListener('click', () => {
         btnGeneral.click(); // просто эмулируем клик по кнопке общей флудилки
     }
 });
+
+// --- ДОНАТ-КНОПКА 🍺 (пока заглушка) ---
+if (btnDonate) {
+    btnDonate.addEventListener('click', () => {
+        alert('🍺 Донат скоро! Готовим ссылку — заходи позже.');
+    });
+}
 
 // ПРИЕМ СООБЩЕНИЙ
 socket.on('receive_msg', (data) => {
