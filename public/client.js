@@ -54,12 +54,22 @@ function addAllDecor() {
     });
 
     // Приватные декорации (2 дыма)
-    const privateDecor = ['bar-counter', 'bottle1', 'bottle2', 'glass', 'smoke-p1', 'smoke-p2'];
+    const privateDecor = ['bar-counter', 'bottle1', 'bottle2', 'glass', 'cat', 'smoke-p1', 'smoke-p2'];
     privateDecor.forEach((name) => {
         const el = document.createElement('div');
         el.className = `skuf-decor ${name}`;
         messagesWrapper.appendChild(el);
     });
+    // Кот: вставляем SVG-силуэт в контейнер .skuf-decor.cat
+// Кот: вставляем готовый SVG-файл через <img>
+const catEl = messagesWrapper.querySelector('.skuf-decor.cat');
+if (catEl) {
+    const img = document.createElement('img');
+    img.src = '/cat.svg';
+    img.alt = 'Спящий кот';
+    img.className = 'cat-svg';
+    catEl.appendChild(img);
+}
 }
 
 addAllDecor();

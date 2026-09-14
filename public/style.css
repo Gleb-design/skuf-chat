@@ -808,6 +808,36 @@ body {
   background: rgba(255, 220, 160, 0.35);
 }
 
+/* --- Приват: КОТ (SVG-силуэт, спящий) --- */
+.skuf-decor.cat {
+  position: absolute;
+  bottom: 40px;
+  right: 26%;              /* чуть левее, чтобы при увеличении не убегал за край */
+  width: 125px;            /* было 95px → стало 125px (~30% крупнее) */
+  height: 72px;            /* было 56px → стало 72px (пропорционально) */
+  z-index: 2;
+  pointer-events: none;
+}
+
+.skuf-decor.cat .cat-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  /* Перекрашиваем чёрный силуэт в рыжий через filter */
+  filter:
+    drop-shadow(0 2px 3px rgba(0,0,0,0.55))
+    drop-shadow(0 0 1px rgba(255, 200, 130, 0.3));
+  animation: catBreathe 4s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+@keyframes catBreathe {
+  0%, 100% { transform: scaleY(1)    translateY(0); }
+  50%      { transform: scaleY(1.03) translateY(0); }   /* без -1px — кот остаётся на стойке */
+}
+
+
 /* Вспомогательный класс для скрытия окон */
 .messages-container.hidden {
   display: none !important;
@@ -1167,6 +1197,7 @@ body {
 .messages-wrapper.theme-private .skuf-decor.bottle1,
 .messages-wrapper.theme-private .skuf-decor.bottle2,
 .messages-wrapper.theme-private .skuf-decor.glass,
+.messages-wrapper.theme-private .skuf-decor.cat,
 .messages-wrapper.theme-private .skuf-decor.smoke-p1,
 .messages-wrapper.theme-private .skuf-decor.smoke-p2 {
   display: block;
