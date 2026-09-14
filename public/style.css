@@ -154,6 +154,66 @@ body {
   background-position: center, center, center, center, top;
 }
 
+/* ======================================================= */
+/* ВРЕМЯ СУТОК: накладывается ПОВЕРХ theme-general          */
+/* ======================================================= */
+
+/* --- УТРО: розовато-золотистое, мягкое, лампы тусклые --- */
+.chat-area.theme-general.time-morning {
+  background-color: #3a2820;
+  background-image:
+    linear-gradient(180deg, rgba(255, 180, 100, 0.10) 0%, rgba(0,0,0,0.20) 50%, rgba(0,0,0,0.35) 100%),
+    radial-gradient(ellipse 300px 150px at 50% 40px, rgba(255, 200, 120, 0.20) 0%, transparent 70%),
+    radial-gradient(ellipse 220px 120px at 18% 60px, rgba(255, 180, 100, 0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 240px 130px at 82% 50px, rgba(255, 200, 120, 0.16) 0%, transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><rect width='80' height='40' fill='%234a2018'/><rect x='1' y='1' width='38' height='18' fill='%236b2f22'/><rect x='41' y='1' width='38' height='18' fill='%235e2a1e'/><rect x='-19' y='21' width='38' height='18' fill='%235e2a1e'/><rect x='21' y='21' width='38' height='18' fill='%236b2f22'/><rect x='61' y='21' width='38' height='18' fill='%235e2a1e'/></svg>");
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 80px 40px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-position: center, center, center, center, top;
+}
+
+/* --- ДЕНЬ: ярче, светлее, тёплый дневной свет --- */
+.chat-area.theme-general.time-day {
+  background-color: #3a2218;
+  background-image:
+    linear-gradient(180deg, rgba(255, 220, 150, 0.08) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.30) 100%),
+    radial-gradient(ellipse 400px 200px at 50% 30px, rgba(255, 240, 180, 0.22) 0%, transparent 75%),
+    radial-gradient(ellipse 250px 130px at 20% 50px, rgba(255, 220, 150, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 260px 140px at 80% 40px, rgba(255, 230, 170, 0.18) 0%, transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><rect width='80' height='40' fill='%234a2018'/><rect x='1' y='1' width='38' height='18' fill='%236b2f22'/><rect x='41' y='1' width='38' height='18' fill='%235e2a1e'/><rect x='-19' y='21' width='38' height='18' fill='%235e2a1e'/><rect x='21' y='21' width='38' height='18' fill='%236b2f22'/><rect x='61' y='21' width='38' height='18' fill='%235e2a1e'/></svg>");
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 80px 40px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-position: center, center, center, center, top;
+}
+
+/* --- ВЕЧЕР: тёплый оранжевый, лампы горят в полную силу --- */
+.chat-area.theme-general.time-evening {
+  background-color: #2a1810;
+  background-image:
+    linear-gradient(180deg, rgba(255, 140, 60, 0.12) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.55) 100%),
+    radial-gradient(ellipse 260px 130px at 50% 50px, rgba(255, 180, 80, 0.24) 0%, transparent 70%),
+    radial-gradient(ellipse 200px 110px at 18% 70px, rgba(255, 160, 70, 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 220px 120px at 82% 60px, rgba(255, 180, 80, 0.20) 0%, transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><rect width='80' height='40' fill='%234a2018'/><rect x='1' y='1' width='38' height='18' fill='%236b2f22'/><rect x='41' y='1' width='38' height='18' fill='%235e2a1e'/><rect x='-19' y='21' width='38' height='18' fill='%235e2a1e'/><rect x='21' y='21' width='38' height='18' fill='%236b2f22'/><rect x='61' y='21' width='38' height='18' fill='%235e2a1e'/></svg>");
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 80px 40px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-position: center, center, center, center, top;
+}
+
+/* --- НОЧЬ: тёмно-синяя, лампы — единственный яркий свет --- */
+.chat-area.theme-general.time-night {
+  background-color: #14101c;
+  background-image:
+    linear-gradient(180deg, rgba(20, 30, 80, 0.35) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.75) 100%),
+    radial-gradient(ellipse 220px 120px at 50% 60px, rgba(255, 180, 70, 0.30) 0%, transparent 70%),
+    radial-gradient(ellipse 160px 90px at 18% 80px, rgba(255, 160, 60, 0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 180px 100px at 82% 70px, rgba(255, 180, 70, 0.25) 0%, transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><rect width='80' height='40' fill='%234a2018'/><rect x='1' y='1' width='38' height='18' fill='%236b2f22'/><rect x='41' y='1' width='38' height='18' fill='%235e2a1e'/><rect x='-19' y='21' width='38' height='18' fill='%235e2a1e'/><rect x='21' y='21' width='38' height='18' fill='%236b2f22'/><rect x='61' y='21' width='38' height='18' fill='%235e2a1e'/></svg>");
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 80px 40px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-position: center, center, center, center, top;
+}
+
 /* --- 3 ЛАМПЫ (как .skuf-decor, чтобы позиционировались от .messages-wrapper) --- */
 .skuf-decor.lamp1,
 .skuf-decor.lamp2,
@@ -812,7 +872,7 @@ body {
 .skuf-decor.cat {
   position: absolute;
   bottom: 40px;
-  right: 26%;              /* чуть левее, чтобы при увеличении не убегал за край */
+  right: 17%;              /* чуть левее, чтобы при увеличении не убегал за край */
   width: 125px;            /* было 95px → стало 125px (~30% крупнее) */
   height: 72px;            /* было 56px → стало 72px (пропорционально) */
   z-index: 2;

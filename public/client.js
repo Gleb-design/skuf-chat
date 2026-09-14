@@ -29,6 +29,40 @@ const messagesWrapper = document.querySelector('.messages-wrapper');
 // чтобы при загрузке ничего не мигнуло
 if (messagesWrapper) messagesWrapper.classList.add('theme-general');
 
+// --- ВРЕМЯ СУТОК: определяем фазу и вешаем класс ---
+// Фазы: утро (6-12), день (12-18), вечер (18-23), ночь (23-6)
+function getTimeOfDay() {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 18) return 'day';
+    if (hour >= 18 && hour < 23) return 'evening';
+    return 'night';
+}
+
+function applyTimeOfDay() {
+    const phase = getTimeOfDay();
+    const timeClass = `time-${phase}`;
+
+    // Снимаем все возможные time-* классы (на случай смены)
+    const allPhases = ['time-morning', 'time-day', 'time-evening', 'time-night'];
+    allPhases.forEach((c) => {
+        chatArea.classList.remove(c);
+        if (messagesWrapper) messagesWrapper.classList.remove(c);
+    });
+
+    // Вешаем актуальный
+    chatArea.classList.add(timeClass);
+    if (messagesWrapper) messagesWrapper.classList.add(timeClass);
+
+    console.log(`🕐 Время суток: ${phase}`);
+}
+
+// Применяем сразу при загрузке
+applyTimeOfDay();
+
+// И обновляем раз в 5 минут — на случай, если пользователь долго сидит
+setInterval(applyTimeOfDay, 5 * 60 * 1000);
+
 // --- ТЕМЫ И ДЕКОРАЦИИ ---
 // Тема вешается на .chat-area, потому что декорации (плакат, ящик, дым, стол)
 // живут там же и позиционируются относительно всей области чата, а не скролла.

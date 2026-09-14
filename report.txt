@@ -1,0 +1,227 @@
+===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
+Версия: v1.8.0
+
+## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
+
+Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
+Считай v1.8.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+При изменениях:
+1) Сначала анализируй текущий код.
+2) Давай конкретные пошаговые действия для VS Code / PowerShell.
+3) Пользователь — новичок. Команды давай ПО ОДНОЙ.
+4) После каждого этапа жди результат (скрин или текст).
+5) Не делай git add . вслепую — только конкретные файлы.
+6) .gitignore НЕ трогать.
+7) Коммиты: git add <конкретные файлы> → git status (проверка) → git commit → git push origin main → git tag vX.Y.Z → git push origin vX.Y.Z.
+8) Всегда проверяем локально (npm start → http://localhost:3000) ПЕРЕД коммитом.
+
+## 1. ТЕКУЩИЙ СТАТУС
+- Production: https://skuf-chat.onrender.com
+- GitHub: Gleb-design/skuf-chat (ветка main)
+- Render: Live
+- Локальный запуск: npm start → http://localhost:3000
+- Стабильная версия: v1.8.0 
+- Хранение: RAM + Redis (Render Key Value, free tier)
+  • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
+  • Fallback в RAM, если Redis недоступен
+  • Redis URL: Internal (redis://red-dajr9t9594qs73dauj50:6379) в Environment
+
+## 2. СТЕК
+- Backend: Node.js, Express, Socket.io, HTTP server
+- Frontend: чистый HTML/CSS/vanilla JS
+- Хранение: RAM + Redis (Render Key Value, free tier)
+  • История флудилки — в Redis (Sorted Set, TTL 24ч), fallback в RAM
+- Хостинг: Render (free Web Service). Может "засыпать" после простоя.
+
+## 3. АРХИТЕКТУРА ЧАТОВ
+- generalMessagesBox — общая флудилка (комната 'general')
+- privateMessagesBox — приватные 1-на-1 (комнаты room_<id>_<id>)
+- История общей флудилки — в Redis (Sorted Set skuf:history, TTL 24ч),
+  fallback в RAM (globalMessagesHistory)
+- Очистка каждые 30 мин
+- При подключении — новому пользователю отправляется история
+
+## 4. РУЛЕТКА 1-НА-1
+- Переменная waitingSkuf (глобальная)
+- События: search_private, waiting, private_found, send_private_msg, leave_private, next_skuf, partner_disconnected
+- При поиске пользователь выходит из general
+- Автовозврат в general через ~3 сек после partner_disconnected
+
+## 5. КНОПКИ В РУЛЕТКЕ
+- btnNextSkuf ("🔄 Следующий скуф") — эмитит next_skuf
+- btnCancelSearch ("❌ Выйти во флудилку") — эмулирует клик по btnGeneral
+
+## 6. ЗВУКИ
+- click.mp3 (своё сообщение) — volume 0.3
+- beer.mp3 (чужое сообщение) — volume 0.5
+- Кэшируются в service worker (skuf-chat-v2)
+
+## 7. RATE LIMIT
+- 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
+- Функция isRateLimited(socket) в server.js
+
+## 8. МОДЕРАЦИЯ (новое в v1.3.3)
+- Стоп-лист рекламы: BAN_PATTERNS в server.js (t.me/, казино, ставки, крипта, 1xbet и т.п.)
+- Функция containsAds(text) — если true, socket.emit('msg_blocked', {reason:'ads'})
+- Антифлуд повторов: REPEAT_WINDOW_MS = 30 сек, REPEAT_MAX = 3
+- Функция isRepeated(socket, text) — если true, socket.emit('msg_blocked', {reason:'repeat'})
+- Мат НЕ фильтруется (это часть атмосферы!)
+- Проверки в send_global_msg и send_private_msg — после isRateLimited, до создания messageData
+- Клиент: обработчик msg_blocked показывает плашку
+
+## 9. СЧЁТЧИК ОНЛАЙН
+- Переменная onlineCount, broadcastOnlineCount() через io.emit('online_count')
+
+## 10. ИНДИКАТОР "СКУФ ПЕЧАТАЕТ..."
+- Клиент: input на messageInput, throttle 1.5 сек, socket.emit('typing')
+- Сервер: if privateRoom → socket.to(privateRoom), иначе socket.to('general')
+- Клиент: socket.on('partner_typing') → показывает #typingIndicator на 2 сек
+
+## 11. OPEN GRAPH + PWA
+- og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v2'
+- Иконка 512x512
+
+## 12. НИКИ
+- Собираются на сервере из skufNames + skufStatus + skufEmojis
+- Примеры: "🍺 Кабан (главный по шашлыкам)"
+
+## 13. АТМОСФЕРА (новое в v1.4.0)
+
+### Общая архитектура тем
+- Темы живут на .chat-area (фон) и .messages-wrapper (декорации)
+- Переключение через классы theme-general / theme-private (add-before-remove!)
+- ВАЖНО: декор по умолчанию display:none, показывается только при явном классе темы
+- Структура DOM: .chat-area > .messages-wrapper > (.messages-container + .skuf-decor-элементы)
+- .messages-wrapper имеет position:relative, overflow:hidden — якорь для декораций
+- Шапка (.chat-header), input-area (.chat-input-area) и .private-controls имеют z-index:10 — поверх декораций
+
+### Курилка (theme-general)
+- Фон: кирпичная SVG-кладка + тёплое затемнение + 3 radial-gradient пятна света
+- .skuf-decor.lamp1 (центр), .lamp2 (слева), .lamp3 (справа) — z-index:50 (поверх сообщений!), мерцание @keyframes lampFlicker
+- .skuf-decor.smoke + .smoke2 — 2 дыма, анимация @keyframes smokeRise
+- .skuf-decor.table — деревянный стол снизу
+- УБРАНЫ: плакат, ящик (были, но мешали)
+### Время суток (v1.8.0)
+- JS определяет фазу по часам пользователя (client.js → getTimeOfDay / applyTimeOfDay)
+- Фазы: утро (6-12), день (12-18), вечер (18-23), ночь (23-6)
+- Классы: .chat-area.theme-general.time-morning / .time-day / .time-evening / .time-night
+- Для каждой фазы — свой background-color + своя комбинация radial-gradient пятен
+- Класс вешается на .chat-area и .messages-wrapper ПАРАЛЛЕЛЬНО с theme-general
+- Обновляется раз в 5 мин (setInterval в client.js), чтобы переключиться, если юзер сидит долго
+
+### Приват (theme-private)
+- Фон: SVG-орнамент ковра + мягкое тёплое свечение (::before на .messages-wrapper)
+- .skuf-decor.bar-counter — барная стойка (дерево+глянец, linear-gradient + ::before блеск)
+- .skuf-decor.bottle1, .bottle2 — 2 бутылки-силуэта на стойке (bottom: 40px)
+- .skuf-decor.glass — стакан по центру (bottom: 40px)
+- .skuf-decor.smoke-p1, .smoke-p2 — 2 дыма
+- Ковёр — оставили как был
+### Приват — дополнение v1.7.0: Кот 🐈
+- .skuf-decor.cat — контейнер 125×72px, справа на барной стойке (right: 26%, bottom: 40px)
+- Внутри — <img src="/cat.svg"> (SVG-силуэт спящего кота, файл в public/)
+- Анимация catBreathe — плавное «дыхание» через scaleY(1→1.03), transform-origin: center bottom
+- Файл public/cat.svg — добавлен в v1.7.0
+
+### Файлы
+- style.css — все темы, декорации, keyframes
+- client.js — функция addAllDecor() (вставляет курилочные + приватные декорации в .messages-wrapper)
+- index.html — обёртка .messages-wrapper вокруг обоих .messages-container
+
+## 14. СТРУКТУРА ПРОЕКТА
+skuf-chat/
+├── public/
+│   ├── client.js
+│   ├── index.html
+│   ├── style.css
+│   ├── sw.js
+│   ├── manifest.json
+│   ├── icon.png
+│   ├── og-image.png
+│   ├── cat.svg            ← новый (v1.7.0)
+│   ├── click.mp3
+│   └── beer.mp3
+├── server.js
+├── package.json
+├── package-lock.json
+├── report.txt             ← отчёт для передачи контекста
+├── .gitignore
+
+## 15. ИСТОРИЯ ВЕРСИЙ
+- v1.0.0 — базовая версия
+- v1.1.0 — кнопки "Следующий скуф" / "Выйти во флудилку"
+- v1.1.1 — починены звуки
+- v1.1.2 — rate limit 5/3с
+- v1.2.0 — счётчик онлайн + favicon
+- v1.2.1 — индикатор "Скуф печатает..."
+- v1.3.0 — Open Graph + og-image.png
+- v1.3.1 — починен "Следующий скуф"
+- v1.3.2 — фикс плашки rate_limited (центрирование)
+- v1.3.3 — модерация: стоп-лист рекламы + антифлуд повторов (3/30сек)
+- v1.4.0 — атмосфера: тема курилки (кирпич+3 лампы+стол+2 дыма) и ламповый бар в привате (ковёр+стойка+2 бутылки+стакан+2 дыма)
+- v1.4.1 — донат-кнопка 🍺 в шапке (пока заглушка через alert; реальная ссылка — позже, DonationAlerts под вопросом из-за проблем с выводом в РБ, CloudTips как альтернатива)
+- v1.5.0 — Redis: история флудилки переехала из RAM в Render Key Value
+  (Sorted Set, TTL 24ч, fallback в RAM при недоступности Redis)
+- v1.5.1 — фикс Redis: tls отключается для Internal URL, maxRetriesPerRequest=null,
+  убран username (Render ждёт только пароль)
+- v1.6.0 — телевизор в курилке (мерцающий экран, свечение, антенна)
+- v1.7.0 — кот в привате (SVG-силуэт спящего кота на барной стойке, анимация дыхания)
+- v1.8.0 — время суток: фон курилки меняется по часам (утро/день/вечер/ночь),
+  разные radial-gradient пятна света для каждой фазы
+
+## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
+
+### МОНЕТИЗАЦИЯ (обсуждено, к реализации)
+1. **Донат "на пиво"** — кнопка 🍺 в шапке → DonationAlerts/CloudTips
+   - САМЫЙ ПРОСТОЙ, не требует БД, сделать первым
+   - ✅ v1.4.1: кнопка 🍺 добавлена в шапку, пока заглушка (alert)
+   - ⏳ Осталось: заменить alert на реальную ссылку
+   - ⚠️ DonationAlerts: проблемы с выводом в РБ (нужны VISA конкретных банков: Технобанк, МТБанк, БНБ, BSB и др.)
+   - 💡 Альтернатива: CloudTips (проще с выводом в СНГ)
+2. **БД (Redis)** — ✅ СДЕЛАНО в v1.5.0–1.5.1
+   - Render Key Value (free tier), Internal URL
+   - Основа для: persistent session ID, кастомных ников, VIP-статусов
+3. **Кастомные ники** — донат → код → ввод кода в чате → ник меняется
+4. **VIP-статусы** — значок + приоритет в очереди рулетки
+
+### ПРИВЛЕЧЕНИЕ АУДИТОРИИ (обсуждено)
+1. SEO — title/description с "анонимный чат без регистрации"
+2. Пикабу — пост в "Лигу гаража"/"Лигу рыбаков"
+3. Telegram-чаты тематические — общаться, потом упоминать
+4. Indie Hackers — пост про реализацию (CSS-лампы, атмосфера)
+
+### ФИЧИ (из старого бэклога)
+1. Статусы собеседника (развить typing до "в гараже/отошёл/уснул")
+2. Простая статистика (сообщений всего, сессий за день)
+3. Redis / PostgreSQL — если проект вырастет
+
+### НОВЫЕ ИДЕИ ПО АТМОСФЕРЕ (обсуждено)
+- ✅ Мерцающий телевизор в курилке — СДЕЛАНО в v1.6.0
+- ✅ Кот в привате 🐈 — СДЕЛАНО в v1.7.0
+- ✅ Смена времени суток — СДЕЛАНО в v1.8.0
+- Звук гаража — тихий фоновый (сверчки, радио) — следующий шаг
+- Пиксельный шрифт для ников
+
+## 17. ОСОБЕННОСТЬ RENDER
+Free Web Service засыпает после простоя. Первый запрос может грузиться 20-30 сек.
+Free PostgreSQL удаляется через 30 дней — для монетизации не подходит!
+Render Key Value (Redis) — free tier, подходит.
+
+## 18. ВАЖНЫЕ ФАЙЛЫ (для быстрого контекста)
+- server.js — основной сервер (Socket.io, rate limit, модерация, счётчик, typing, next_skuf)
+- public/client.js — вся клиентская логика + addAllDecor() + переключение тем
+- public/index.html — вёрстка + OG-теги + обёртка .messages-wrapper
+- public/style.css — стили, темы (курилка/приват), декорации, keyframes
+- public/sw.js — service worker
+
+## 19. ТЕКУЩИЕ ПРАВИЛА ПО ТЕМАМ (важно, чтобы не сломать!)
+- Темы: .chat-area.theme-X + .messages-wrapper.theme-X
+- Переключение: СНАЧАЛА add новый класс, ПОТОМ remove старый (add-before-remove)
+- .skuf-decor по умолчанию display: none (чтобы не мигало при загрузке)
+- Показ декораций: .messages-wrapper.theme-X .skuf-decor.YYY { display: block }
+- Лампы поверх сообщений: z-index: 50
+- Шапка/input-area/private-controls: z-index: 10
+- .messages-wrapper: position: relative, overflow: hidden
+- .messages-container: height: 100%, z-index: 3
+
+===== КОНЕЦ ОТЧЁТА =====
