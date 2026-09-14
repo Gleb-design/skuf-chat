@@ -1,6 +1,8 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const Redis = require('ioredis');
 
 const app = express();
 const server = http.createServer(app);
@@ -103,20 +105,136 @@ function isRateLimited(socket) {
     return false;
 }
 
-// --- НОВОЕ: ХРАНИЛИЩЕ ИСТОРИИ ФЛУДИЛКИ ---
-let globalMessagesHistory = []; 
+// --- ХРАНИЛИЩЕ ИСТОРИИ ФЛУДИЛКИ: Redis + fallback в RAM ---
+// Ключ, под которым в Redis лежит история (Sorted Set: score=timestamp, value=JSON)
+const REDIS_HISTORY_KEY = 'skuf:history';
 
-// Функция для очистки сообщений старше 24 часов
-function cleanOldMessages() {
+// Флаги:
+// - redisEnabled: мы вообще пытаемся использовать Redis (REDIS_URL задан)?
+// - useRedis:     Redis подключён и готов принимать команды?
+let redis = null;
+let redisEnabled = !!process.env.REDIS_URL;
+let useRedis = false;
+
+// Подключаемся к Redis, если задана переменная окружения REDIS_URL
+if (process.env.REDIS_URL) {
+    const url = new URL(process.env.REDIS_URL);
+
+    const redisOptions = {
+        host: url.hostname,
+        port: parseInt(url.port || '6379', 10),
+        password: url.password,
+
+        // Явно указываем TLS и отключаем проверку сертификата,
+        // если Render использует самоподписанный сертификат.
+        // В реальном приложении это может быть небезопасно, но для отладки подходит.
+        tls: {
+            servername: url.hostname,
+            rejectUnauthorized: false
+        },
+        maxRetriesPerRequest: 1, // Уменьшим, чтобы видеть ошибку быстрее
+        retryStrategy: (times) => Math.min(times * 500, 5000),
+        lazyConnect: false,
+    };
+
+
+    redis = new Redis(redisOptions);
+
+    redis.on('connect', () => {
+    });
+
+    redis.on('ready', () => {
+        if (!useRedis) {
+            useRedis = true;
+            console.log('✅ Redis подключён, история флудилки — в Redis');        }
+    });
+
+    redis.on('error', (err) => {
+        useRedis = false;
+    });
+
+    redis.on('close', () => {
+    });
+
+    redis.on('reconnecting', () => {
+    });
+
+} else {
+    console.log('ℹ️ REDIS_URL не задан — работаем с историей в RAM');
+}
+
+// RAM-фолбэк (используется, если Redis недоступен)
+let globalMessagesHistory = [];
+
+// --- Функция очистки старых сообщений (24 часа) ---
+async function cleanOldMessages() {
     const now = Date.now();
-    const oneDayInMs = 24 * 60 * 60 * 1000;
-    // Оставляем только те сообщения, которые были отправлены меньше суток назад
-    globalMessagesHistory = globalMessagesHistory.filter(msg => (now - msg.timestamp) < oneDayInMs);
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    if (useRedis && redis) {
+        try {
+            // Удаляем всё, что старше 24 часов: score < oneDayAgo
+            await redis.zremrangebyscore(REDIS_HISTORY_KEY, '-inf', oneDayAgo);
+        } catch (err) {
+            console.warn('⚠️ Ошибка очистки Redis:', err.message);
+        }
+    } else {
+        // Fallback: чистим RAM-массив
+        globalMessagesHistory = globalMessagesHistory.filter(
+            (msg) => (now - msg.timestamp) < 24 * 60 * 60 * 1000
+        );
+    }
+}
+
+// --- Функция сохранения сообщения в историю ---
+async function saveMessage(messageData) {
+
+    // Если Redis вообще не настроен — сразу в RAM
+    if (!redisEnabled) {
+        globalMessagesHistory.push(messageData);
+        return;
+    }
+
+    // Redis настроен — ждём готовности
+    try {
+        if (!useRedis && redis) {
+            await redis.ping(); // дождёмся, пока Redis ответит
+            useRedis = true;
+        }
+        const result = await redis.zadd(REDIS_HISTORY_KEY, messageData.timestamp, JSON.stringify(messageData));
+
+    } catch (err) {
+        console.warn('⚠️ Ошибка записи в Redis, падаем в RAM:', err.message);
+        globalMessagesHistory.push(messageData);
+    }
+}
+
+// --- Функция получения истории (последние 24 часа) ---
+async function getHistory() {
+
+    // Если Redis вообще не настроен — сразу из RAM
+    if (!redisEnabled) {
+        return globalMessagesHistory;
+    }
+
+    // Redis настроен — ждём готовности и читаем
+    try {
+        if (!useRedis && redis) {
+            await redis.ping(); // дождёмся, пока Redis ответит
+            useRedis = true;
+        }
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        const raw = await redis.zrangebyscore(REDIS_HISTORY_KEY, oneDayAgo, '+inf');
+    
+        return raw.map((s) => JSON.parse(s));
+    } catch (err) {
+        console.warn('⚠️ Ошибка чтения из Redis, падаем в RAM:', err.message);
+        return globalMessagesHistory;
+    }
 }
 
 // Запускаем автоматическую уборку старых сообщений каждые 30 минут
 setInterval(cleanOldMessages, 30 * 60 * 1000);
-
 
 io.on('connection', (socket) => {
     const name = skufNames[Math.floor(Math.random() * skufNames.length)];
@@ -132,17 +250,24 @@ io.on('connection', (socket) => {
     
     socket.join('general');
 
-    // НОВОЕ: Как только скуф вошел, отправляем ему всю сохраненную историю за сутки
-    // Перед отправкой на всякий случай чистим массив от просроченных сообщений
-    cleanOldMessages();
-    globalMessagesHistory.forEach((msg) => {
-        socket.emit('receive_msg', {
-            senderId: msg.senderId,
-            username: msg.username,
-            text: msg.text,
-            isPrivate: false
-        });
-    });
+       // Как только скуф вошел, отправляем ему всю сохранённую историю за сутки.
+    // cleanOldMessages + getHistory — асинхронные, поэтому оборачиваем в async-функцию.
+    (async () => {
+        try {
+            await cleanOldMessages();
+            const history = await getHistory();
+            history.forEach((msg) => {
+                socket.emit('receive_msg', {
+                    senderId: msg.senderId,
+                    username: msg.username,
+                    text: msg.text,
+                    isPrivate: false
+                });
+            });
+        } catch (err) {
+            console.warn('⚠️ Ошибка отправки истории новому клиенту:', err.message);
+        }
+    })();
 
     // 1. Логика общей флудилки (Обновлено!)
         socket.on('send_global_msg', (text) => {
@@ -172,8 +297,8 @@ io.on('connection', (socket) => {
             timestamp: Date.now() // Запоминаем точное время отправки
         };
 
-        // Сохраняем сообщение в историю сервера
-        globalMessagesHistory.push(messageData);
+        // Сохраняем сообщение в историю (Redis или RAM — решает saveMessage)
+        saveMessage(messageData);
 
         // Отправляем его всем в общую флудилку
         io.to('general').emit('receive_msg', {
@@ -228,7 +353,7 @@ io.on('connection', (socket) => {
         }
 
         if (socket.privateRoom) {
-            
+
             io.to(socket.privateRoom).emit('receive_msg', {
                 senderId: socket.id,
                 username: socket.username,
