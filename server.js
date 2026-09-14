@@ -123,16 +123,13 @@ if (process.env.REDIS_URL) {
     const redisOptions = {
         host: url.hostname,
         port: parseInt(url.port || '6379', 10),
-        password: url.password,
-
-        // Явно указываем TLS и отключаем проверку сертификата,
-        // если Render использует самоподписанный сертификат.
-        // В реальном приложении это может быть небезопасно, но для отладки подходит.
-        tls: {
+        password: url.password || undefined,
+        // TLS нужен ТОЛЬКО для внешних подключений (rediss://).
+        // Для внутреннего (redis://) — TLS не используется.
+        tls: process.env.REDIS_URL.startsWith('rediss://') ? {
             servername: url.hostname,
-            rejectUnauthorized: false
-        },
-        maxRetriesPerRequest: 1, // Уменьшим, чтобы видеть ошибку быстрее
+        } : undefined,
+        maxRetriesPerRequest: null,
         retryStrategy: (times) => Math.min(times * 500, 5000),
         lazyConnect: false,
     };
