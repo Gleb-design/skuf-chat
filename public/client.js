@@ -2,7 +2,26 @@ const socket = io();
 
 let myId = null;
 let myUsername = null;
-let currentMode = 'general'; 
+let currentMode = 'general';
+
+// --- SESSION KEY: постоянный ID браузера для сохранения ника ---
+// Генерируется один раз, живёт в localStorage, переживает перезагрузку страницы.
+function getOrCreateSessionKey() {
+    const STORAGE_KEY = 'skuf_session_key';
+    let key = localStorage.getItem(STORAGE_KEY);
+    if (!key) {
+        // crypto.randomUUID() поддерживается во всех современных браузерах
+        key = (crypto.randomUUID && crypto.randomUUID()) ||
+              ('skuf_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+        localStorage.setItem(STORAGE_KEY, key);
+        console.log('🆕 Создан новый sessionKey:', key);
+    } else {
+        console.log('♻️ Найден сохранённый sessionKey:', key);
+    }
+    return key;
+}
+
+const sessionKey = getOrCreateSessionKey();
 // --- ТЕМА ПО УМОЛЧАНИЮ: КУРИЛКА ---
 // При загрузке мы сразу в общей флудилке, значит на generalMessagesBox — тема курилки
 
@@ -114,6 +133,13 @@ const btnNextSkuf = document.getElementById('btnNextSkuf');
 const btnCancelSearch = document.getElementById('btnCancelSearch');
 const onlineCounter = document.getElementById('onlineCounter');
 const typingIndicator = document.getElementById('typingIndicator');
+
+// При подключении — сообщаем серверу наш постоянный sessionKey.
+// Сервер по нему посмотрит, есть ли сохранённый ник, и применит его.
+socket.on('server_ready', () => {
+    console.log('✅ Сервер готов, отправляем sessionKey');
+    socket.emit('init_session', { sessionKey });
+});
 
 socket.on('init_user', (data) => {
     myId = data.id;

@@ -125,6 +125,42 @@ function isRateLimited(socket) {
 // Ключ, под которым в Redis лежит история (Sorted Set: score=timestamp, value=JSON)
 const REDIS_HISTORY_KEY = 'skuf:history';
 
+// Ключ-префикс для хранения кастомных ников.
+// Итоговый ключ: skuf:nick:<sessionKey>
+const REDIS_NICK_PREFIX = 'skuf:nick:';
+
+// Читает сохранённый ник по sessionKey. Возвращает строку или null.
+async function getSavedNick(sessionKey) {
+    if (!redisEnabled || !redis || !sessionKey) return null;
+    try {
+        if (!useRedis && redis) {
+            await redis.ping();
+            useRedis = true;
+        }
+        const value = await redis.get(REDIS_NICK_PREFIX + sessionKey);
+        return value || null;
+    } catch (err) {
+        console.warn('⚠️ Ошибка чтения ника из Redis:', err.message);
+        return null;
+    }
+}
+
+// Сохраняет ник по sessionKey. Возвращает true/false.
+async function saveNick(sessionKey, nick) {
+    if (!redisEnabled || !redis || !sessionKey) return false;
+    try {
+        if (!useRedis && redis) {
+            await redis.ping();
+            useRedis = true;
+        }
+        await redis.set(REDIS_NICK_PREFIX + sessionKey, nick);
+        return true;
+    } catch (err) {
+        console.warn('⚠️ Ошибка сохранения ника в Redis:', err.message);
+        return false;
+    }
+}
+
 // Флаги:
 // - redisEnabled: мы вообще пытаемся использовать Redis (REDIS_URL задан)?
 // - useRedis:     Redis подключён и готов принимать команды?
@@ -263,6 +299,59 @@ io.on('connection', (socket) => {
     
     socket.join('general');
 
+    // --- РЕГИСТРИРУЕМ ОБРАБОТЧИКИ СРАЗУ, ДО СИГНАЛА ГОТОВНОСТИ ---
+    // Иначе клиентский init_session может прийти раньше, чем мы его слушаем.
+
+    // --- СМЕНА НИКА ---
+    socket.on('change_nick', async (rawNick) => {
+        const result = validateNick(rawNick);
+        if (!result.ok) {
+            socket.emit('nick_error', { reason: result.reason });
+            return;
+        }
+
+        const oldNick = socket.username;
+        socket.username = `🍺 ${result.nick}`;
+
+        // Сохраняем в Redis, если есть sessionKey
+        if (socket.sessionKey) {
+            await saveNick(socket.sessionKey, result.nick);
+        }
+
+        // Сообщаем самому пользователю, что ник обновился
+        socket.emit('nick_changed', { username: socket.username });
+
+        // Системное сообщение в общую флудилку
+        io.to('general').emit('receive_msg', {
+            senderId: 'system',
+            username: 'Система',
+            text: `${oldNick} теперь зовётся ${socket.username}`,
+            isPrivate: false,
+            isSystem: true
+        });
+    });
+
+    // --- ИНИЦИАЛИЗАЦИЯ СЕССИИ: подтягиваем сохранённый ник ---
+    socket.on('init_session', async ({ sessionKey }) => {
+        if (!sessionKey) return;
+        socket.sessionKey = sessionKey;
+
+        const savedNick = await getSavedNick(sessionKey);
+        if (savedNick) {
+            socket.username = `🍺 ${savedNick}`;
+            socket.emit('nick_changed', { username: socket.username });
+            console.log(`♻️ Восстановлен ник для ${sessionKey}: ${socket.username}`);
+        } else {
+            console.log(`🆕 Новый sessionKey: ${sessionKey}, ник по умолчанию`);
+        }
+    });
+
+    // --- СИГНАЛ КЛИЕНТУ: "СЕРВЕР ГОТОВ ПРИНИМАТЬ init_session" ---
+    // Отправляем после того, как все обработчики зарегистрированы
+    socket.emit('server_ready');
+
+
+
        // Как только скуф вошел, отправляем ему всю сохранённую историю за сутки.
     // cleanOldMessages + getHistory — асинхронные, поэтому оборачиваем в async-функцию.
     (async () => {
@@ -282,30 +371,6 @@ io.on('connection', (socket) => {
         }
     })();
 
-// --- СМЕНА НИКА ---
-socket.on('change_nick', (rawNick) => {
-    const result = validateNick(rawNick);
-    if (!result.ok) {
-        socket.emit('nick_error', { reason: result.reason });
-        return;
-    }
-
-    const oldNick = socket.username;
-    // Сохраняем "чистый" ник, а эмодзи оставляем от старого (или можно убрать)
-    socket.username = `🍺 ${result.nick}`;
-
-    // Сообщаем САМОМУ пользователю, что его ник обновился
-    socket.emit('nick_changed', { username: socket.username });
-
-    // Системное сообщение в общую флудилку
-    io.to('general').emit('receive_msg', {
-        senderId: 'system',
-        username: 'Система',
-        text: `${oldNick} теперь зовётся ${socket.username}`,
-        isPrivate: false,
-        isSystem: true
-    });
-});
 
     // 1. Логика общей флудилки (Обновлено!)
         socket.on('send_global_msg', (text) => {
