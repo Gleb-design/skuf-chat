@@ -139,6 +139,8 @@ const typingIndicator = document.getElementById('typingIndicator');
 socket.on('server_ready', () => {
     console.log('✅ Сервер готов, отправляем sessionKey');
     socket.emit('init_session', { sessionKey });
+    // Первый запрос статистики — сразу после готовности сервера
+    requestStats();
 });
 
 socket.on('init_user', (data) => {
@@ -160,6 +162,49 @@ socket.on('online_count', (count) => {
         onlineCounter.innerHTML = `🍺 Сейчас в гараже: <strong>${count}</strong>`;
     }
 });
+
+// --- СТАТИСТИКА ЗА СЕГОДНЯ ---
+const statsMessages = document.getElementById('statsMessages');
+const statsUsers = document.getElementById('statsUsers');
+const statsPeak = document.getElementById('statsPeak');
+
+// Обновляем DOM-числа, когда сервер присылает свежие данные
+// --- СКЛОНЕНИЕ РУССКИХ СЛОВ ---
+// plural(1, 'сообщение', 'сообщения', 'сообщений') → 'сообщение'
+// plural(2, ...) → 'сообщения'
+// plural(5, ...) → 'сообщений'
+function plural(n, one, few, many) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+    return many;
+}
+
+socket.on('stats_update', (data) => {
+    if (!data) return;
+
+    const m = data.messages ?? 0;
+    const u = data.uniqueUsers ?? 0;
+
+    if (statsMessages) {
+        statsMessages.textContent = `${m} ${plural(m, 'сообщение', 'сообщения', 'сообщений')}`;
+    }
+    if (statsUsers) {
+        statsUsers.textContent = `${u} ${plural(u, 'скуф', 'скуфа', 'скуфов')}`;
+    }
+    if (statsPeak) {
+        statsPeak.textContent = data.peakOnline ?? 0;
+    }
+});
+
+// Запрашиваем статистику раз в минуту
+// (плюс первый запрос — сразу, как сервер скажет, что готов)
+function requestStats() {
+    socket.emit('get_stats');
+}
+
+setInterval(requestStats, 60 * 1000);
 
 // КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ (БЕЗ БЛОКИРОВОК!)
     btnGeneral.addEventListener('click', () => {

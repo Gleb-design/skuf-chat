@@ -1226,6 +1226,23 @@ body {
   }
 }
 
+/* --- ПЛАШКА СТАТИСТИКИ В ШАПКЕ --- */
+.stats-counter {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+    letter-spacing: 0.2px;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-counter span {
+    color: #ffb454;
+    font-weight: 600;
+}
+
 
 /* ======================================================= */
 /* УПРАВЛЕНИЕ ВИДИМОСТЬЮ ДЕКОРАЦИЙ ПО ТЕМАМ                */

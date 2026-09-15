@@ -96,6 +96,8 @@ let onlineCount = 0;
 // Рассылает всем актуальное число скуфов онлайн
 function broadcastOnlineCount() {
     io.emit('online_count', onlineCount);
+    // Обновляем пик онлайна за сегодня (не await — не блокируем рассылку)
+    recordPeakOnline(onlineCount).catch(() => {});
 }
 
 
@@ -159,6 +161,123 @@ async function saveNick(sessionKey, nick) {
         console.warn('⚠️ Ошибка сохранения ника в Redis:', err.message);
         return false;
     }
+}
+
+// --- СТАТИСТИКА: Redis + RAM-fallback ---
+// Ключи:
+//   skuf:stats:<YYYY-MM-DD>        — Hash { messages, peakOnline }
+//   skuf:stats:users:<YYYY-MM-DD>  — Set из sessionKey (для уникальных)
+const STATS_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 дней
+
+// RAM-фолбэк: если Redis нет, держим статистику в памяти процесса
+let ramStats = {
+    date: null,        // 'YYYY-MM-DD'
+    messages: 0,
+    peakOnline: 0,
+    users: new Set()   // sessionKey-и
+};
+
+function todayKey() {
+    // UTC-дата в формате YYYY-MM-DD
+    const d = new Date();
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+// Проверяет, сменились ли сутки — если да, сбрасывает RAM-статистику
+function ensureRamStatsFresh() {
+    const today = todayKey();
+    if (ramStats.date !== today) {
+        ramStats = { date: today, messages: 0, peakOnline: 0, users: new Set() };
+    }
+}
+
+// +1 к счётчику сообщений (общая + приват)
+async function recordMessage() {
+    const today = todayKey();
+    if (useRedis && redis) {
+        try {
+            const key = `skuf:stats:${today}`;
+            await redis.hincrby(key, 'messages', 1);
+            await redis.expire(key, STATS_TTL_SECONDS);
+            return;
+        } catch (err) {
+            console.warn('⚠️ Ошибка recordMessage в Redis, падаем в RAM:', err.message);
+        }
+    }
+    ensureRamStatsFresh();
+    ramStats.messages++;
+}
+
+// Запоминает уникального пользователя (по sessionKey)
+async function recordUniqueUser(sessionKey) {
+    if (!sessionKey) return;
+    const today = todayKey();
+    if (useRedis && redis) {
+        try {
+            const key = `skuf:stats:users:${today}`;
+            await redis.sadd(key, sessionKey);
+            await redis.expire(key, STATS_TTL_SECONDS);
+            return;
+        } catch (err) {
+            console.warn('⚠️ Ошибка recordUniqueUser в Redis, падаем в RAM:', err.message);
+        }
+    }
+    ensureRamStatsFresh();
+    ramStats.users.add(sessionKey);
+}
+
+// Обновляет пик онлайна (вызывается при каждом изменении onlineCount)
+async function recordPeakOnline(count) {
+    const today = todayKey();
+    if (useRedis && redis) {
+        try {
+            const key = `skuf:stats:${today}`;
+            const current = parseInt(await redis.hget(key, 'peakOnline') || '0', 10);
+            if (count > current) {
+                await redis.hset(key, 'peakOnline', count);
+            }
+            await redis.expire(key, STATS_TTL_SECONDS);
+            return;
+        } catch (err) {
+            console.warn('⚠️ Ошибка recordPeakOnline в Redis, падаем в RAM:', err.message);
+        }
+    }
+    ensureRamStatsFresh();
+    if (count > ramStats.peakOnline) ramStats.peakOnline = count;
+}
+
+// Читает текущую статистику за сегодня
+async function getStats() {
+    const today = todayKey();
+
+    if (useRedis && redis) {
+        try {
+            const statsKey = `skuf:stats:${today}`;
+            const usersKey = `skuf:stats:users:${today}`;
+            const [hash, uniqueUsers] = await Promise.all([
+                redis.hgetall(statsKey),
+                redis.scard(usersKey)
+            ]);
+            return {
+                messages: parseInt(hash.messages || '0', 10),
+                peakOnline: parseInt(hash.peakOnline || '0', 10),
+                uniqueUsers: uniqueUsers || 0
+            };
+        } catch (err) {
+            console.warn('⚠️ Ошибка getStats в Redis, падаем в RAM:', err.message);
+        }
+    }
+
+    // RAM-фолбэк
+    ensureRamStatsFresh();
+    return {
+        messages: ramStats.messages,
+        peakOnline: ramStats.peakOnline,
+        uniqueUsers: ramStats.users.size
+    };
 }
 
 // Флаги:
@@ -332,19 +451,22 @@ io.on('connection', (socket) => {
     });
 
     // --- ИНИЦИАЛИЗАЦИЯ СЕССИИ: подтягиваем сохранённый ник ---
-    socket.on('init_session', async ({ sessionKey }) => {
-        if (!sessionKey) return;
-        socket.sessionKey = sessionKey;
+socket.on('init_session', async ({ sessionKey }) => {
+    if (!sessionKey) return;
+    socket.sessionKey = sessionKey;
 
-        const savedNick = await getSavedNick(sessionKey);
-        if (savedNick) {
-            socket.username = `🍺 ${savedNick}`;
-            socket.emit('nick_changed', { username: socket.username });
-            console.log(`♻️ Восстановлен ник для ${sessionKey}: ${socket.username}`);
-        } else {
-            console.log(`🆕 Новый sessionKey: ${sessionKey}, ник по умолчанию`);
-        }
-    });
+    // Считаем уникального скуфа за сегодня
+    await recordUniqueUser(sessionKey);
+
+    const savedNick = await getSavedNick(sessionKey);
+    if (savedNick) {
+        socket.username = `🍺 ${savedNick}`;
+        socket.emit('nick_changed', { username: socket.username });
+        console.log(`♻️ Восстановлен ник для ${sessionKey}: ${socket.username}`);
+    } else {
+        console.log(`🆕 Новый sessionKey: ${sessionKey}, ник по умолчанию`);
+    }
+});
 
     // --- СИГНАЛ КЛИЕНТУ: "СЕРВЕР ГОТОВ ПРИНИМАТЬ init_session" ---
     // Отправляем после того, как все обработчики зарегистрированы
@@ -402,6 +524,8 @@ io.on('connection', (socket) => {
 
         // Сохраняем сообщение в историю (Redis или RAM — решает saveMessage)
         saveMessage(messageData);
+        // Статистика: +1 к сообщениям за сегодня
+        recordMessage().catch(() => {});
 
         // Отправляем его всем в общую флудилку
         io.to('general').emit('receive_msg', {
@@ -456,13 +580,15 @@ io.on('connection', (socket) => {
         }
 
         if (socket.privateRoom) {
-
             io.to(socket.privateRoom).emit('receive_msg', {
                 senderId: socket.id,
                 username: socket.username,
                 text: text,
                 isPrivate: true
             });
+
+            // Статистика: +1 к сообщениям за сегодня
+            recordMessage().catch(() => {});
         }
     });
 
@@ -512,6 +638,16 @@ io.on('connection', (socket) => {
             socket.emit('waiting');
         }
     });
+
+        // --- СТАТИСТИКА: по запросу клиента ---
+        socket.on('get_stats', async () => {
+            try {
+                const stats = await getStats();
+                socket.emit('stats_update', stats);
+            } catch (err) {
+                console.warn('⚠️ Ошибка get_stats:', err.message);
+            }
+        });
 
         // --- ИНДИКАТОР "СКУФ ПЕЧАТАЕТ..." ---
     socket.on('typing', () => {
