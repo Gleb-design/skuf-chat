@@ -52,6 +52,22 @@ function containsAds(text) {
     return BAN_PATTERNS.some((re) => re.test(text));
 }
 
+// --- ВАЛИДАЦИЯ КАСТОМНОГО НИКА ---
+const NICK_MIN_LEN = 2;
+const NICK_MAX_LEN = 20;
+// Разрешаем буквы (рус/лат), цифры, пробел, дефис, подчёркивание
+const NICK_ALLOWED = /^[A-Za-zА-Яа-яЁё0-9 _-]+$/;
+
+function validateNick(rawNick) {
+    if (typeof rawNick !== 'string') return { ok: false, reason: 'bad_type' };
+    const nick = rawNick.trim();
+    if (nick.length < NICK_MIN_LEN) return { ok: false, reason: 'too_short' };
+    if (nick.length > NICK_MAX_LEN) return { ok: false, reason: 'too_long' };
+    if (!NICK_ALLOWED.test(nick)) return { ok: false, reason: 'bad_chars' };
+    if (containsAds(nick)) return { ok: false, reason: 'ads' };
+    return { ok: true, nick };
+}
+
 // --- АНТИФЛУД ПОВТОРОВ: 3 одинаковых сообщения за 30 секунд ---
 const REPEAT_WINDOW_MS = 30 * 1000;
 const REPEAT_MAX = 3;
@@ -265,6 +281,31 @@ io.on('connection', (socket) => {
             console.warn('⚠️ Ошибка отправки истории новому клиенту:', err.message);
         }
     })();
+
+// --- СМЕНА НИКА ---
+socket.on('change_nick', (rawNick) => {
+    const result = validateNick(rawNick);
+    if (!result.ok) {
+        socket.emit('nick_error', { reason: result.reason });
+        return;
+    }
+
+    const oldNick = socket.username;
+    // Сохраняем "чистый" ник, а эмодзи оставляем от старого (или можно убрать)
+    socket.username = `🍺 ${result.nick}`;
+
+    // Сообщаем САМОМУ пользователю, что его ник обновился
+    socket.emit('nick_changed', { username: socket.username });
+
+    // Системное сообщение в общую флудилку
+    io.to('general').emit('receive_msg', {
+        senderId: 'system',
+        username: 'Система',
+        text: `${oldNick} теперь зовётся ${socket.username}`,
+        isPrivate: false,
+        isSystem: true
+    });
+});
 
     // 1. Логика общей флудилки (Обновлено!)
         socket.on('send_global_msg', (text) => {

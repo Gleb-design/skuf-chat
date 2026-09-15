@@ -121,6 +121,13 @@ socket.on('init_user', (data) => {
     myUsernameDisplay.textContent = myUsername;
 });
 
+
+// Сервер сообщил, что ник сменился — обновляем в шапке
+socket.on('nick_changed', (data) => {
+    myUsername = data.username;
+    myUsernameDisplay.textContent = myUsername;
+});
+
 // Счётчик онлайн — обновляем число в шапке
 socket.on('online_count', (count) => {
     if (onlineCounter) {
@@ -183,12 +190,40 @@ function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
 
+    // --- КОМАНДА /nick ---
+    if (text.startsWith('/nick ')) {
+        const newNick = text.slice(6).trim(); // отрезаем "/nick "
+        if (newNick.length === 0) {
+            showSystemMsg('🍺 Напиши ник после /nick, например: /nick Вася');
+            messageInput.value = '';
+            return;
+        }
+        socket.emit('change_nick', newNick);
+        messageInput.value = '';
+        return;
+    }
+
     if (currentMode === 'general') {
         socket.emit('send_global_msg', text);
     } else if (currentMode === 'private') {
         socket.emit('send_private_msg', text);
     }
     messageInput.value = '';
+}
+
+// Показывает системное сообщение в текущем активном окне
+function showSystemMsg(text) {
+    const warn = document.createElement('div');
+    warn.className = 'system-msg';
+    warn.textContent = text;
+
+    if (currentMode === 'private' || currentMode === 'searching') {
+        privateMessagesBox.appendChild(warn);
+        privateMessagesBox.scrollTop = privateMessagesBox.scrollHeight;
+    } else {
+        generalMessagesBox.appendChild(warn);
+        generalMessagesBox.scrollTop = generalMessagesBox.scrollHeight;
+    }
 }
 
 sendBtn.addEventListener('click', sendMessage);
@@ -245,6 +280,12 @@ if (btnDonate) {
 
 // ПРИЕМ СООБЩЕНИЙ
 socket.on('receive_msg', (data) => {
+    // --- СИСТЕМНОЕ СООБЩЕНИЕ (смена ника и т.п.) ---
+    if (data.isSystem) {
+        showSystemMsg(data.text);
+        return;
+    }
+
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('message');
     
@@ -344,6 +385,18 @@ socket.on('msg_blocked', (data) => {
         generalMessagesBox.appendChild(warn);
         generalMessagesBox.scrollTop = generalMessagesBox.scrollHeight;
     }
+});
+
+// СЕРВЕР ОТКЛОНИЛ СМЕНУ НИКА
+socket.on('nick_error', (data) => {
+    const reasons = {
+        too_short: '🍺 Ник слишком короткий — минимум 2 символа.',
+        too_long: '🍺 Ник слишком длинный — максимум 20 символов.',
+        bad_chars: '🍺 В нике можно только буквы, цифры, пробел, дефис и _.',
+        ads: '🚫 Реклама в нике не пройдёт, скуф.',
+        bad_type: '🍺 Что-то не так с ником. Попробуй ещё раз.'
+    };
+    showSystemMsg(reasons[data.reason] || '🚫 Ник не подошёл.');
 });
 
 // Собеседник отключился — ТЕПЕРЬ ВСЁ СРАБОТАЕТ ЧЁТКО!
