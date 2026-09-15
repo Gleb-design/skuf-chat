@@ -1289,3 +1289,91 @@ body {
 .messages-wrapper.theme-general .skuf-decor.lamp3 {
   z-index: 50;
 }
+
+/* ======================================================= */
+/* ЭМОДЗИ-ПАНЕЛЬ (v1.12.0)                                 */
+/* ======================================================= */
+
+/* Кнопка смайла — слева от поля ввода */
+.emoji-btn {
+    background: #32323d;
+    border: 1px solid #3a3a46;
+    font-size: 20px;
+    padding: 0 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    transition: 0.15s;
+    flex-shrink: 0;
+}
+
+.emoji-btn:hover {
+    background: #3a3a46;
+}
+
+.emoji-btn.active {
+    background: #0ea5e9;
+    border-color: #0ea5e9;
+}
+
+/* Панель смайлов — absolute над полем ввода */
+.chat-input-area {
+    position: relative;   /* якорь для .emoji-panel */
+}
+
+.emoji-panel {
+    position: absolute;
+    bottom: 100%;          /* ровно над .chat-input-area */
+    left: 15px;            /* отступ как у .chat-input-area padding */
+    right: 15px;
+    margin-bottom: 6px;
+    background: #2a2a32;
+    border: 1px solid #3a3a46;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.5);
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    z-index: 100;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.emoji-panel.hidden {
+    display: none !important;
+}
+
+/* Каждый смайл — кнопка */
+.emoji-panel .emoji-item {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    padding: 6px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.12s;
+    line-height: 1;
+}
+
+.emoji-panel .emoji-item:hover {
+    background: #3a3a46;
+    transform: scale(1.15);
+}
+
+/* На мобилках — компактнее */
+@media (max-width: 768px) {
+    .emoji-panel {
+        max-height: 200px;
+        padding: 8px;
+        gap: 2px;
+    }
+    .emoji-panel .emoji-item {
+        font-size: 22px;
+        padding: 4px 0;
+    }
+    .emoji-btn {
+        font-size: 18px;
+        padding: 0 10px;
+    }
+}

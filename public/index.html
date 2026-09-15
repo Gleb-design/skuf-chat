@@ -90,9 +90,15 @@
         <span>Вы вошли как: <strong id="myUsername">Загрузка...</strong></span>
       </div>
       
-      <div class="input-row">
+            <div class="input-row">
+        <button id="emojiBtn" class="emoji-btn" type="button" title="Смайлы">😊</button>
         <input type="text" id="messageInput" placeholder="Написать в чат..." autocomplete="off">
         <button id="sendBtn">Отправить 🚀</button>
+      </div>
+
+      <!-- Панель смайлов (скрыта по умолчанию) -->
+      <div id="emojiPanel" class="emoji-panel hidden">
+        <!-- Смайлы вставит client.js при загрузке -->
       </div>
     </footer>
   </main>

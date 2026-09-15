@@ -37,6 +37,26 @@ const btnPrivate = document.getElementById('btnPrivate');
 const chatTitle = document.getElementById('chatTitle');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+// --- ЭМОДЗИ-ПАНЕЛЬ (v1.12.0) ---
+const emojiBtn = document.getElementById('emojiBtn');
+const emojiPanel = document.getElementById('emojiPanel');
+
+// Скуфский набор — 36 смайлов, сетка 6×6
+const SKUF_EMOJIS = [
+    // 🍺 Быт (12)
+    '🍺', '🍻', '🍢', '🎣', '📺', '🛋️',
+    '🔧', '🥟', '🍖', '🧦', '🧖', '🏡',
+    // 🥃 Напитки (3)
+    '🥃', '🍷', '🍸',
+    // 😎 Реакции (10)
+    '😎', '🤙', '🖕', '💪', '🤷', '🥴',
+    '😴', '💀', '🔥', '😂',
+    // 🎭 Классика ICQ (8)
+    '🙂', '☹️', '😉', '😄', '😛', '😢',
+    '😱', '😡',
+    // 👀 Особое (3)
+    '👀', '🍑', '🤘'
+];
 const myUsernameDisplay = document.getElementById('myUsername');
 const btnDonate = document.getElementById('btnDonate');
 
@@ -126,6 +146,24 @@ if (catEl) {
 }
 
 addAllDecor();
+
+// --- ЗАПОЛНЯЕМ ПАНЕЛЬ СМАЙЛАМИ ---
+function renderEmojiPanel() {
+    if (!emojiPanel) return;
+    emojiPanel.innerHTML = ''; // на случай перерисовки
+    SKUF_EMOJIS.forEach((emoji) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'emoji-item';
+        btn.textContent = emoji;
+        btn.addEventListener('click', () => {
+            insertEmoji(emoji);
+        });
+        emojiPanel.appendChild(btn);
+    });
+}
+
+renderEmojiPanel();
 
 
 const privateControls = document.getElementById('privateControls');
@@ -282,6 +320,22 @@ function sendMessage() {
     messageInput.value = '';
 }
 
+// --- ВСТАВКА ЭМОДЗИ В ПОЛЕ ВВОДА ---
+function insertEmoji(emoji) {
+    if (!messageInput) return;
+    // Вставляем эмодзи в позицию курсора (или в конец)
+    const start = messageInput.selectionStart ?? messageInput.value.length;
+    const end = messageInput.selectionEnd ?? messageInput.value.length;
+    const before = messageInput.value.slice(0, start);
+    const after = messageInput.value.slice(end);
+    messageInput.value = before + emoji + after;
+    // Ставим курсор после эмодзи
+    const newPos = start + emoji.length;
+    messageInput.setSelectionRange(newPos, newPos);
+    // Возвращаем фокус в поле — чтобы можно было сразу продолжать печатать
+    messageInput.focus();
+}
+
 // Показывает системное сообщение в текущем активном окне
 function showSystemMsg(text) {
     const warn = document.createElement('div');
@@ -311,6 +365,35 @@ messageInput.addEventListener('input', () => {
     if (now - lastTypingSent < TYPING_THROTTLE_MS) return;
     lastTypingSent = now;
     socket.emit('typing');
+});
+
+// --- ОТКРЫТИЕ/ЗАКРЫТИЕ ПАНЕЛИ СМАЙЛОВ ---
+function toggleEmojiPanel() {
+    if (!emojiPanel) return;
+    const isHidden = emojiPanel.classList.contains('hidden');
+    if (isHidden) {
+        emojiPanel.classList.remove('hidden');
+        emojiBtn?.classList.add('active');
+    } else {
+        emojiPanel.classList.add('hidden');
+        emojiBtn?.classList.remove('active');
+    }
+}
+
+if (emojiBtn) {
+    emojiBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleEmojiPanel();
+    });
+}
+
+// Клик вне панели — закрыть
+document.addEventListener('click', (e) => {
+    if (!emojiPanel || emojiPanel.classList.contains('hidden')) return;
+    if (emojiPanel.contains(e.target)) return;       // внутри панели — не закрываем
+    if (emojiBtn && emojiBtn.contains(e.target)) return; // по самой кнопке — не закрываем
+    emojiPanel.classList.add('hidden');
+    emojiBtn?.classList.remove('active');
 });
 
 // --- ПОКАЗ/СКРЫТИЕ КНОПОК ПРИВАТНОГО ЧАТА ---
