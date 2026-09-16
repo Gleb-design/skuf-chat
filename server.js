@@ -10,6 +10,59 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+app.use(express.json()); // нужно для POST /admin/add-code с JSON-телом
+
+// --- АДМИН-ЭНДПОИНТЫ ДЛЯ ДОНАТ-КОДОВ ---
+// Секрет тот же, что в client.js (ADMIN_SECRET).
+// Задаётся переменной окружения ADMIN_SECRET или берётся дефолт.
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'skuf-admin-2026';
+
+function checkAdmin(req) {
+    const fromQuery = req.query.secret;
+    const fromHeader = req.get('x-admin-secret');
+    return (fromQuery === ADMIN_SECRET) || (fromHeader === ADMIN_SECRET);
+}
+
+// Добавить один код (или сразу несколько через массив codes)
+// Пример: POST /admin/add-code?secret=skuf-admin-2026  { "code": "SKUF-A1B2" }
+// Или:    POST /admin/add-code?secret=...  { "count": 5 }  → сгенерит 5 случайных
+app.post('/admin/add-code', async (req, res) => {
+    if (!checkAdmin(req)) return res.status(403).json({ error: 'forbidden' });
+
+    const { code, count } = req.body || {};
+
+    // Вариант 1: явный код
+    if (code) {
+        const result = await addDonateCode(code);
+        return res.json(result);
+    }
+
+    // Вариант 2: сгенерировать N случайных
+    if (count && Number.isInteger(count) && count > 0 && count <= 50) {
+        const generated = [];
+        for (let i = 0; i < count; i++) {
+            let attempts = 0;
+            while (attempts < 20) {
+                const c = generateDonateCode();
+                const r = await addDonateCode(c);
+                if (r.ok) { generated.push(c); break; }
+                attempts++;
+            }
+        }
+        return res.json({ ok: true, generated });
+    }
+
+    return res.status(400).json({ error: 'need_code_or_count' });
+});
+
+// Список всех кодов
+// GET /admin/list-codes?secret=skuf-admin-2026
+app.get('/admin/list-codes', async (req, res) => {
+    if (!checkAdmin(req)) return res.status(403).json({ error: 'forbidden' });
+    const codes = await listDonateCodes();
+    res.json({ count: codes.length, codes });
+});
+
 
 // --- БАЗА ИСТИННО СКУФСКИХ КЛИЧЕК И АВАТАРОК ---
 const skufNames = [
@@ -89,6 +142,36 @@ function isRepeated(socket, text) {
 
 let waitingSkuf = null;
 
+// --- БОТ-СКУФ: системный персонаж, который отвечает на команды и приветствует ---
+// Это не отдельный клиент, а серверная функция, которая шлёт сообщения
+// от имени бота в общий чат или лично пользователю.
+
+const BOT_NAME = '🍺 Бот-Скуф';
+const BOT_ID = 'bot_skuf';
+
+// Отправить сообщение в общий чат от имени бота
+function botSay(text) {
+    io.to('general').emit('receive_msg', {
+        senderId: BOT_ID,
+        username: BOT_NAME,
+        text,
+        isPrivate: false,
+        isSystem: true
+    });
+}
+
+// Отправить личное сообщение конкретному сокету (в текущий его режим — general или private)
+function botSayToUser(socket, text) {
+    // Отправляем как системное сообщение — клиент покажет его в текущем окне
+    socket.emit('receive_msg', {
+        senderId: BOT_ID,
+        username: BOT_NAME,
+        text,
+        isPrivate: !!socket.privateRoom,
+        isSystem: true
+    });
+}
+
 
 // --- СЧЁТЧИК ОНЛАЙН ---
 let onlineCount = 0;
@@ -131,6 +214,11 @@ const REDIS_HISTORY_KEY = 'skuf:history';
 // Итоговый ключ: skuf:nick:<sessionKey>
 const REDIS_NICK_PREFIX = 'skuf:nick:';
 
+// Флаги:
+let redis = null;
+let redisEnabled = !!process.env.REDIS_URL;
+let useRedis = false;
+
 // Читает сохранённый ник по sessionKey. Возвращает строку или null.
 async function getSavedNick(sessionKey) {
     if (!redisEnabled || !redis || !sessionKey) return null;
@@ -161,6 +249,110 @@ async function saveNick(sessionKey, nick) {
         console.warn('⚠️ Ошибка сохранения ника в Redis:', err.message);
         return false;
     }
+}
+
+// --- ДОНАТ-КОДЫ ДЛЯ СМЕНЫ НИКА ---
+// Хранилище: Redis Hash skuf:donate_codes
+//   field = код (например 'SKUF-A1B2')
+//   value = JSON { used: false, usedBy: null, usedAt: null }
+// Fallback в RAM, если Redis недоступен.
+const REDIS_DONATE_CODES_KEY = 'skuf:donate_codes';
+const DONATE_CODE_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 дней
+
+// RAM-фолбэк для кодов
+const ramDonateCodes = new Map();
+
+// Нормализуем код: верхний регистр, обрезаем пробелы
+function normalizeCode(raw) {
+    if (typeof raw !== 'string') return null;
+    const c = raw.trim().toUpperCase();
+    if (!/^SKUF-[A-Z0-9]{4}$/.test(c)) return null;
+    return c;
+}
+
+// Добавляет новый код. Возвращает true/false.
+async function addDonateCode(rawCode) {
+    const code = normalizeCode(rawCode);
+    if (!code) return { ok: false, reason: 'bad_format' };
+
+    const value = JSON.stringify({ used: false, usedBy: null, usedAt: null });
+
+    if (redisEnabled && redis) {
+        try {
+            if (!useRedis) { await redis.ping(); useRedis = true; }
+            // HSETNX — установит только если поля ещё нет
+            const added = await redis.hsetnx(REDIS_DONATE_CODES_KEY, code, value);
+            await redis.expire(REDIS_DONATE_CODES_KEY, DONATE_CODE_TTL_SECONDS);
+            return { ok: added === 1, reason: added === 1 ? null : 'already_exists' };
+        } catch (err) {
+            console.warn('⚠️ Ошибка addDonateCode в Redis, падаем в RAM:', err.message);
+        }
+    }
+    // RAM-фолбэк
+    if (ramDonateCodes.has(code)) return { ok: false, reason: 'already_exists' };
+    ramDonateCodes.set(code, { used: false, usedBy: null, usedAt: null });
+    return { ok: true, reason: null };
+}
+
+// Проверяет и «сжигает» код. Возвращает { ok: true } или { ok: false, reason }.
+async function checkAndBurnDonateCode(rawCode, sessionKey) {
+    const code = normalizeCode(rawCode);
+    if (!code) return { ok: false, reason: 'bad_format' };
+
+    const usedValue = JSON.stringify({
+        used: true,
+        usedBy: sessionKey || null,
+        usedAt: Date.now()
+    });
+
+    if (redisEnabled && redis) {
+        try {
+            if (!useRedis) { await redis.ping(); useRedis = true; }
+            const raw = await redis.hget(REDIS_DONATE_CODES_KEY, code);
+            if (!raw) return { ok: false, reason: 'not_found' };
+
+            const info = JSON.parse(raw);
+            if (info.used) return { ok: false, reason: 'already_used' };
+
+            await redis.hset(REDIS_DONATE_CODES_KEY, code, usedValue);
+            return { ok: true };
+        } catch (err) {
+            console.warn('⚠️ Ошибка checkAndBurnDonateCode в Redis, падаем в RAM:', err.message);
+        }
+    }
+    // RAM-фолбэк
+    const info = ramDonateCodes.get(code);
+    if (!info) return { ok: false, reason: 'not_found' };
+    if (info.used) return { ok: false, reason: 'already_used' };
+    ramDonateCodes.set(code, { used: true, usedBy: sessionKey || null, usedAt: Date.now() });
+    return { ok: true };
+}
+
+// Список всех кодов с их статусом (для админ-эндпоинта)
+async function listDonateCodes() {
+    if (redisEnabled && redis) {
+        try {
+            if (!useRedis) { await redis.ping(); useRedis = true; }
+            const hash = await redis.hgetall(REDIS_DONATE_CODES_KEY);
+            return Object.entries(hash).map(([code, raw]) => {
+                try { return { code, ...JSON.parse(raw) }; }
+                catch { return { code, raw }; }
+            });
+        } catch (err) {
+            console.warn('⚠️ Ошибка listDonateCodes в Redis, падаем в RAM:', err.message);
+        }
+    }
+    return Array.from(ramDonateCodes.entries()).map(([code, info]) => ({ code, ...info }));
+}
+
+// Генерирует новый случайный код формата SKUF-XXXX
+function generateDonateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих 0/O/1/I
+    let suffix = '';
+    for (let i = 0; i < 4; i++) {
+        suffix += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `SKUF-${suffix}`;
 }
 
 // --- СТАТИСТИКА: Redis + RAM-fallback ---
@@ -280,12 +472,6 @@ async function getStats() {
     };
 }
 
-// Флаги:
-// - redisEnabled: мы вообще пытаемся использовать Redis (REDIS_URL задан)?
-// - useRedis:     Redis подключён и готов принимать команды?
-let redis = null;
-let redisEnabled = !!process.env.REDIS_URL;
-let useRedis = false;
 
 // Подключаемся к Redis, если задана переменная окружения REDIS_URL
 if (process.env.REDIS_URL) {
@@ -422,11 +608,35 @@ io.on('connection', (socket) => {
     // Иначе клиентский init_session может прийти раньше, чем мы его слушаем.
 
     // --- СМЕНА НИКА ---
-    socket.on('change_nick', async (rawNick) => {
+    // payload: { nick: string, code?: string }
+    // Если code передан — проверяем и «сжигаем». Если нет — бесплатный режим (пока).
+    socket.on('change_nick', async (payload) => {
+        let rawNick, rawCode;
+        if (typeof payload === 'string') {
+            // Старый формат: просто строка (для совместимости)
+            rawNick = payload;
+        } else if (payload && typeof payload === 'object') {
+            rawNick = payload.nick;
+            rawCode = payload.code;
+        } else {
+            socket.emit('nick_error', { reason: 'bad_type' });
+            return;
+        }
+
+        // Валидация ника
         const result = validateNick(rawNick);
         if (!result.ok) {
             socket.emit('nick_error', { reason: result.reason });
             return;
+        }
+
+        // Если код передан — проверяем и сжигаем ДО смены ника
+        if (rawCode) {
+            const codeCheck = await checkAndBurnDonateCode(rawCode, socket.sessionKey);
+            if (!codeCheck.ok) {
+                socket.emit('nick_error', { reason: `code_${codeCheck.reason}` });
+                return;
+            }
         }
 
         const oldNick = socket.username;
@@ -466,6 +676,10 @@ socket.on('init_session', async ({ sessionKey }) => {
     } else {
         console.log(`🆕 Новый sessionKey: ${sessionKey}, ник по умолчанию`);
     }
+        // Приветствие от бота — лично пользователю, коротко
+    botSayToUser(socket,
+        'Здорово, скуф! 🍺 Хочешь свой ник? Введи: /nick ТвойНик'
+    );
 });
 
     // --- СИГНАЛ КЛИЕНТУ: "СЕРВЕР ГОТОВ ПРИНИМАТЬ init_session" ---
@@ -496,6 +710,25 @@ socket.on('init_session', async ({ sessionKey }) => {
 
     // 1. Логика общей флудилки (Обновлено!)
         socket.on('send_global_msg', (text) => {
+        // --- КОМАНДЫ БОТА (перехватываем до rate limit) ---
+        const trimmed = (text || '').trim();
+
+        if (trimmed === '/help') {
+    botSayToUser(socket,
+        '🍺 Чтобы сменить ник — просто введи в чат:\n' +
+        '/nick ТвойНовыйНик\n' +
+        'Например: /nick Кабан\n\n' +
+        'Ник сохранится и переживёт перезагрузку страницы.'
+    );
+    return;
+}
+
+        if (trimmed === '/mykey') {
+            const key = socket.sessionKey || '(ещё не инициализирован — подожди пару секунд)';
+            botSayToUser(socket, `🍺 Твой sessionKey: ${key}`);
+            return;
+        }
+
         // Проверяем rate limit
         if (isRateLimited(socket)) {
             socket.emit('rate_limited');

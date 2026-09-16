@@ -329,14 +329,33 @@ function sendMessage() {
     if (!text) return;
 
     // --- КОМАНДА /nick ---
+    // Формат 1 (бесплатно):  /nick Вася
+    // Формат 2 (по коду):    /nick SKUF-A1B2 Вася
     if (text.startsWith('/nick ')) {
-        const newNick = text.slice(6).trim(); // отрезаем "/nick "
-        if (newNick.length === 0) {
-            showSystemMsg('🍺 Напиши ник после /nick, например: /nick Вася');
+        const rest = text.slice(6).trim(); // всё после "/nick "
+        if (rest.length === 0) {
+            showSystemMsg('🍺 Напиши ник после /nick. Например: /nick Вася');
             messageInput.value = '';
             return;
         }
-        socket.emit('change_nick', newNick);
+
+        const parts = rest.split(/\s+/);
+        // Если первое слово выглядит как код (SKUF-XXXX) — это формат с кодом
+        const firstLooksLikeCode = /^SKUF-[A-Z0-9]{4}$/i.test(parts[0]);
+
+        if (firstLooksLikeCode) {
+            if (parts.length < 2) {
+                showSystemMsg('🍺 После кода напиши ник. Например: /nick SKUF-A1B2 Вася');
+                messageInput.value = '';
+                return;
+            }
+            const code = parts[0].toUpperCase();
+            const newNick = parts.slice(1).join(' ');
+            socket.emit('change_nick', { nick: newNick, code });
+        } else {
+            // Бесплатный режим
+            socket.emit('change_nick', { nick: rest });
+        }
         messageInput.value = '';
         return;
     }
@@ -579,7 +598,11 @@ socket.on('nick_error', (data) => {
         too_long: '🍺 Ник слишком длинный — максимум 20 символов.',
         bad_chars: '🍺 В нике можно только буквы, цифры, пробел, дефис и _.',
         ads: '🚫 Реклама в нике не пройдёт, скуф.',
-        bad_type: '🍺 Что-то не так с ником. Попробуй ещё раз.'
+        bad_type: '🍺 Что-то не так с ником. Попробуй ещё раз.',
+        // Ошибки донат-кодов
+        code_bad_format: '🍺 Код должен быть в формате SKUF-XXXX (4 символа).',
+        code_not_found: '🚫 Такого кода нет. Проверь, не опечатался ли.',
+        code_already_used: '🚫 Этот код уже использован. Один код — одна смена ника.'
     };
     showSystemMsg(reasons[data.reason] || '🚫 Ник не подошёл.');
 });
