@@ -351,11 +351,11 @@ body {
 .skuf-decor.smoke {
   bottom: 50px;
   left: 30%;
-  width: 16px;
-  height: 60px;
+  width: 22px;
+  height: 70px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.45) 0%, rgba(200, 200, 200, 0.20) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.60) 0%, rgba(210, 210, 210, 0.30) 40%, transparent 78%);
+  filter: blur(2px);
   animation: smokeRise 7s infinite ease-in-out;
 }
 .skuf-decor.smoke::before,
@@ -363,22 +363,22 @@ body {
   content: '';
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.40) 0%, rgba(200, 200, 200, 0.15) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.55) 0%, rgba(210, 210, 210, 0.25) 40%, transparent 78%);
+  filter: blur(2px);
 }
 .skuf-decor.smoke::before {
-  top: -22px;
-  left: -8px;
-  width: 22px;
-  height: 30px;
+  top: -26px;
+  left: -10px;
+  width: 28px;
+  height: 36px;
   animation: smokeRise 7s infinite ease-in-out;
   animation-delay: -2.3s;
 }
 .skuf-decor.smoke::after {
-  top: -40px;
-  left: 6px;
-  width: 18px;
-  height: 26px;
+  top: -48px;
+  left: 8px;
+  width: 22px;
+  height: 30px;
   animation: smokeRise 7s infinite ease-in-out;
   animation-delay: -4.6s;
 }
@@ -545,11 +545,11 @@ body {
 .skuf-decor.smoke2 {
   bottom: 55px;
   right: 25%;
-  width: 14px;
-  height: 55px;
+  width: 20px;
+  height: 64px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.40) 0%, rgba(200, 200, 200, 0.18) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.55) 0%, rgba(210, 210, 210, 0.28) 40%, transparent 78%);
+  filter: blur(2px);
   animation: smokeRise 8s infinite ease-in-out;
   animation-delay: -3s;
 }
@@ -558,22 +558,22 @@ body {
   content: '';
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.35) 0%, rgba(200, 200, 200, 0.14) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.50) 0%, rgba(210, 210, 210, 0.22) 40%, transparent 78%);
+  filter: blur(2px);
 }
 .skuf-decor.smoke2::before {
-  top: -20px;
-  left: -7px;
-  width: 20px;
-  height: 28px;
+  top: -24px;
+  left: -9px;
+  width: 26px;
+  height: 34px;
   animation: smokeRise 8s infinite ease-in-out;
   animation-delay: -2.6s;
 }
 .skuf-decor.smoke2::after {
-  top: -36px;
-  left: 5px;
-  width: 16px;
-  height: 24px;
+  top: -44px;
+  left: 7px;
+  width: 20px;
+  height: 28px;
   animation: smokeRise 8s infinite ease-in-out;
   animation-delay: -5.2s;
 }
@@ -582,11 +582,11 @@ body {
 .skuf-decor.smoke-p1 {
   bottom: 50px;
   left: 22%;
-  width: 15px;
-  height: 58px;
+  width: 21px;
+  height: 68px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.38) 0%, rgba(200, 200, 200, 0.16) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.55) 0%, rgba(210, 210, 210, 0.28) 40%, transparent 78%);
+  filter: blur(2px);
   animation: smokeRise 7.5s infinite ease-in-out;
 }
 .skuf-decor.smoke-p1::before,
@@ -594,22 +594,22 @@ body {
   content: '';
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.33) 0%, rgba(200, 200, 200, 0.13) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.50) 0%, rgba(210, 210, 210, 0.22) 40%, transparent 78%);
+  filter: blur(2px);
 }
 .skuf-decor.smoke-p1::before {
-  top: -21px;
-  left: -7px;
-  width: 20px;
-  height: 28px;
+  top: -25px;
+  left: -9px;
+  width: 26px;
+  height: 34px;
   animation: smokeRise 7.5s infinite ease-in-out;
   animation-delay: -2.5s;
 }
 .skuf-decor.smoke-p1::after {
-  top: -38px;
-  left: 5px;
-  width: 16px;
-  height: 24px;
+  top: -46px;
+  left: 7px;
+  width: 20px;
+  height: 28px;
   animation: smokeRise 7.5s infinite ease-in-out;
   animation-delay: -5s;
 }
@@ -618,11 +618,11 @@ body {
 .skuf-decor.smoke-p2 {
   bottom: 55px;
   right: 28%;
-  width: 13px;
-  height: 52px;
+  width: 19px;
+  height: 62px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.38) 0%, rgba(200, 200, 200, 0.16) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.55) 0%, rgba(210, 210, 210, 0.28) 40%, transparent 78%);
+  filter: blur(2px);
   animation: smokeRise 8.5s infinite ease-in-out;
   animation-delay: -4s;
 }
@@ -631,31 +631,31 @@ body {
   content: '';
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.33) 0%, rgba(200, 200, 200, 0.13) 40%, transparent 75%);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(240, 240, 240, 0.50) 0%, rgba(210, 210, 210, 0.22) 40%, transparent 78%);
+  filter: blur(2px);
 }
 .skuf-decor.smoke-p2::before {
-  top: -19px;
-  left: -6px;
-  width: 18px;
-  height: 26px;
+  top: -23px;
+  left: -8px;
+  width: 24px;
+  height: 32px;
   animation: smokeRise 8.5s infinite ease-in-out;
   animation-delay: -2.8s;
 }
 .skuf-decor.smoke-p2::after {
-  top: -34px;
-  left: 5px;
-  width: 15px;
-  height: 22px;
+  top: -42px;
+  left: 6px;
+  width: 19px;
+  height: 26px;
   animation: smokeRise 8.5s infinite ease-in-out;
   animation-delay: -5.7s;
 }
 
 @keyframes smokeRise {
   0%   { opacity: 0; transform: translateY(20px) scale(0.7); }
-  20%  { opacity: 0.75; }
-  60%  { opacity: 0.45; }
-  100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+  20%  { opacity: 0.90; }
+  60%  { opacity: 0.55; }
+  100% { opacity: 0; transform: translateY(-85px) scale(1.7); }
 }
 
 /* Стол — деревянная кромка снизу */
@@ -1060,12 +1060,14 @@ body {
 
 .input-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
+  align-items: stretch;
 }
 
 .input-row input {
-  flex-grow: 1;
+  flex: 1 1 0;
+  min-width: 0;            /* ← КЛЮЧЕВОЕ: разрешает input сжиматься */
   background: #32323d;
   border: 1px solid #3a3a46;
   border-radius: 8px;
@@ -1079,11 +1081,12 @@ body {
   background: #0ea5e9;
   color: #fff;
   border: none;
-  padding: 0 20px;
+  padding: 0 16px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
   white-space: nowrap;
+  flex-shrink: 0;          /* кнопка не сжимается сама — но и не растёт */
 }
 
 /* --- СТИЛИ ДЛЯ КНОПКИ ОЧИСТКИ В ШАПКЕ --- */
@@ -1299,12 +1302,13 @@ body {
     background: #32323d;
     border: 1px solid #3a3a46;
     font-size: 20px;
-    padding: 0 12px;
+    padding: 0 10px;
     border-radius: 8px;
     cursor: pointer;
     color: #fff;
     transition: 0.15s;
     flex-shrink: 0;
+    min-width: 42px;
 }
 
 .emoji-btn:hover {
@@ -1376,4 +1380,38 @@ body {
         font-size: 18px;
         padding: 0 10px;
     }
+}
+
+/* ======================================================= */
+/* МОБИЛЬНЫЙ ФИКС: узкие экраны (iPhone SE, узкие Android) */
+/* ======================================================= */
+@media (max-width: 420px) {
+  /* Поле ввода: уменьшаем отступы */
+  .input-row input {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  /* Кнопка эмодзи: компактнее */
+  .emoji-btn {
+    font-size: 18px;
+    padding: 0 8px;
+    min-width: 38px;
+  }
+
+  /* Кнопка Отправить: убираем текст, оставляем только 🚀 */
+  #sendBtn {
+    padding: 0 12px;
+    font-size: 0;           /* скрываем текст */
+  }
+  #sendBtn::after {
+    content: '🚀';
+    font-size: 18px;        /* возвращаем размер только для иконки */
+    line-height: 1;
+  }
+}
+
+/* Скрытие статистики для не-админов */
+.stats-counter.hidden {
+  display: none !important;
 }

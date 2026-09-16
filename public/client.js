@@ -22,6 +22,31 @@ function getOrCreateSessionKey() {
 }
 
 const sessionKey = getOrCreateSessionKey();
+
+// --- ADMIN-РЕЖИМ: статистика видна только по ?admin=СЕКРЕТ ---
+// Секрет задан здесь. Ты один раз открываешь ?admin=СЕКРЕТ,
+// он сохраняется в localStorage — потом просто заходишь как обычно.
+const ADMIN_SECRET = 'skuf-admin-2026'; // ← поменяй на свой секрет
+
+function checkAdminMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlAdmin = urlParams.get('admin');
+
+    // Если в URL есть правильный секрет — сохраняем и чистим URL
+    if (urlAdmin === 'skuf-admin-2026') {
+        localStorage.setItem('skuf_admin', '1');
+        // Убираем ?admin=... из адресной строки, чтобы не светить секрет
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        console.log('👑 Admin-режим активирован');
+    }
+
+    // Проверяем, включён ли админ-режим (по URL или по сохранённому флагу)
+    return localStorage.getItem('skuf_admin') === '1';
+}
+
+const isAdmin = checkAdminMode();
+
 // --- ТЕМА ПО УМОЛЧАНИЮ: КУРИЛКА ---
 // При загрузке мы сразу в общей флудилке, значит на generalMessagesBox — тема курилки
 
@@ -106,11 +131,6 @@ setInterval(applyTimeOfDay, 5 * 60 * 1000);
 // Тема вешается на .chat-area, потому что декорации (плакат, ящик, дым, стол)
 // живут там же и позиционируются относительно всей области чата, а не скролла.
 chatArea.classList.add('theme-general');
-
-// --- ДЕКОРАЦИИ КУРИЛКИ ---
-// Вставляем один раз при загрузке. Живут поверх фона, под сообщениями.
-// Ссылка на обёртку — нужна для декораций
-
 
 // --- ДЕКОРАЦИИ: курилка + приват, оба набора сразу ---
 // Видимость управляется CSS-классами theme-general / theme-private
@@ -206,6 +226,12 @@ const statsMessages = document.getElementById('statsMessages');
 const statsUsers = document.getElementById('statsUsers');
 const statsPeak = document.getElementById('statsPeak');
 
+// Показываем плашку статистики ТОЛЬКО админу
+const statsCounterEl = document.getElementById('statsCounter');
+if (isAdmin && statsCounterEl) {
+    statsCounterEl.classList.remove('hidden');
+}
+
 // Обновляем DOM-числа, когда сервер присылает свежие данные
 // --- СКЛОНЕНИЕ РУССКИХ СЛОВ ---
 // plural(1, 'сообщение', 'сообщения', 'сообщений') → 'сообщение'
@@ -239,10 +265,13 @@ socket.on('stats_update', (data) => {
 // Запрашиваем статистику раз в минуту
 // (плюс первый запрос — сразу, как сервер скажет, что готов)
 function requestStats() {
+    if (!isAdmin) return;  // обычные юзеры статистику не запрашивают
     socket.emit('get_stats');
 }
 
-setInterval(requestStats, 60 * 1000);
+if (isAdmin) {
+    setInterval(requestStats, 60 * 1000);
+}
 
 // КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ (БЕЗ БЛОКИРОВОК!)
     btnGeneral.addEventListener('click', () => {
