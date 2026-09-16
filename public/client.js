@@ -425,10 +425,12 @@ btnCancelSearch.addEventListener('click', () => {
     }
 });
 
-// --- ДОНАТ-КНОПКА 🍺 (пока заглушка) ---
+// --- ДОНАТ-КНОПКА 🍺 ---
+const DONATE_URL = 'https://www.donationalerts.com/r/glem_design';
+
 if (btnDonate) {
     btnDonate.addEventListener('click', () => {
-        alert('🍺 Донат скоро! Готовим ссылку — заходи позже.');
+        window.open(DONATE_URL, '_blank', 'noopener');
     });
 }
 
