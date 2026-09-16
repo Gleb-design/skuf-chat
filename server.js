@@ -23,6 +23,18 @@ function checkAdmin(req) {
     return (fromQuery === ADMIN_SECRET) || (fromHeader === ADMIN_SECRET);
 }
 
+// ВРЕМЕННЫЙ отладочный эндпоинт — покажет, дошёл ли секрет до процесса
+// УДАЛИТЬ после отладки!
+app.get('/admin/debug', (req, res) => {
+    const s = process.env.ADMIN_API_SECRET;
+    res.json({
+        defined: !!s,
+        length: s ? s.length : 0,
+        preview: s ? s.slice(0, 4) + '...' + s.slice(-2) : null,
+        hasSpaces: s ? (s !== s.trim()) : null
+    });
+});
+
 // Добавить один код (или сразу несколько через массив codes)
 // Пример: POST /admin/add-code?secret=skuf-admin-2026  { "code": "SKUF-A1B2" }
 // Или:    POST /admin/add-code?secret=...  { "count": 5 }  → сгенерит 5 случайных
