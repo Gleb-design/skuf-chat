@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.13.0
+Версия: v1.13.1
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.13.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.13.1 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.13.0 
+- Стабильная версия: v1.13.1
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
   • Fallback в RAM, если Redis недоступен
@@ -201,6 +201,23 @@ skuf-chat/
   public/client.js (SKUF_EMOJIS, renderEmojiPanel, insertEmoji, toggleEmojiPanel).
 - v1.13.0 — донат-кнопка 🍺: alert заменён на реальную ссылку DonationAlerts,
   открывается в новой вкладке (window.open с noopener). Файл: public/client.js
+- v1.13.1 — три правки одним коммитом:
+  • Фикс вёрстки input на узких экранах (iPhone SE 375px): кнопка «Отправить»
+    больше не улетает за край. При ≤420px текст кнопки скрывается, остаётся
+    только 🚀. Правки: .input-row (min-width:0 на input, flex-shrink:0 на кнопках),
+    .emoji-btn (компактнее), медиа-запрос @media (max-width: 420px).
+    Файлы: public/style.css, public/index.html.
+  • Админ-режим для статистики: плашка «📊 Сегодня: ...» видна ТОЛЬКО по
+    секретному URL. Клиент читает ?admin=СЕКРЕТ, сохраняет флаг в localStorage
+    и чистит URL через history.replaceState. Обычные юзеры статистику вообще
+    не запрашивают (requestStats возвращает early). Файлы: public/client.js,
+    public/index.html (класс hidden по умолчанию), public/style.css
+    (.stats-counter.hidden { display: none }).
+    ⚠️ Секрет: skuf-admin-2026 (задан в client.js → ADMIN_SECRET).
+  • Усилен дым во всех 4 местах (2 в курилке + 2 в привате): размер +40%,
+    opacity поднята с 0.40 до 0.55, blur уменьшен с 3px до 2px, подъём
+    увеличен с -60 до -85px. Правки: .skuf-decor.smoke/smoke2/smoke-p1/smoke-p2
+    + keyframes smokeRise. Файл: public/style.css.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 
