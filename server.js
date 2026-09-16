@@ -27,11 +27,15 @@ function checkAdmin(req) {
 // УДАЛИТЬ после отладки!
 app.get('/admin/debug', (req, res) => {
     const s = process.env.ADMIN_API_SECRET;
+    const fromQuery = req.query.secret;
+    const fromHeader = req.get('x-admin-secret');
     res.json({
-        defined: !!s,
-        length: s ? s.length : 0,
-        preview: s ? s.slice(0, 4) + '...' + s.slice(-2) : null,
-        hasSpaces: s ? (s !== s.trim()) : null
+        env_secret_length: s ? s.length : 0,
+        env_secret_preview: s ? s.slice(0, 4) + '...' + s.slice(-2) : null,
+        query_secret_length: fromQuery ? fromQuery.length : 0,
+        query_secret_preview: fromQuery ? fromQuery.slice(0, 4) + '...' + fromQuery.slice(-2) : null,
+        header_present: !!fromHeader,
+        match: (fromQuery === s) || (fromHeader === s)
     });
 });
 
