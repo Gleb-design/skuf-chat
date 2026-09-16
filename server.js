@@ -15,12 +15,22 @@ app.use(express.json()); // нужно для POST /admin/add-code с JSON-те�
 // --- АДМИН-ЭНДПОИНТЫ ДЛЯ ДОНАТ-КОДОВ ---
 // Секрет тот же, что в client.js (ADMIN_SECRET).
 // Задаётся переменной окружения ADMIN_SECRET или берётся дефолт.
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'skuf-admin-2026';
+// --- АДМИН-ЭНДПОИНТЫ ДЛЯ ДОНАТ-КОДОВ ---
+// Секрет для серверных админ-эндпоинтов. НЕ путать с client.js ADMIN_SECRET
+// (тот — только для показа статистики, не опасен).
+// Задаётся переменной окружения ADMIN_API_SECRET.
+// На проде — Render → Environment. Локально — в файле .env.
+const ADMIN_API_SECRET = process.env.ADMIN_API_SECRET;
+
+if (!ADMIN_API_SECRET) {
+    console.warn('⚠️ ADMIN_API_SECRET не задан — /admin/* эндпоинты отключены');
+}
 
 function checkAdmin(req) {
+    if (!ADMIN_API_SECRET) return false; // секрет не задан → всё закрыто
     const fromQuery = req.query.secret;
     const fromHeader = req.get('x-admin-secret');
-    return (fromQuery === ADMIN_SECRET) || (fromHeader === ADMIN_SECRET);
+    return (fromQuery === ADMIN_API_SECRET) || (fromHeader === ADMIN_API_SECRET);
 }
 
 // ВРЕМЕННЫЙ отладочный эндпоинт — покажет, дошёл ли секрет до процесса
