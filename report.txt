@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.16.0
+Версия: v1.17.1
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.16.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.17.1 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.16.0
+- Стабильная версия: v1.17.1
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
   • Fallback в RAM, если Redis недоступен
@@ -62,7 +62,7 @@
 - beer.mp3 (чужое сообщение) — volume 0.5
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v5)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v6)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -87,7 +87,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v5' (актуально с v1.16.0)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v6' (актуально с v1.17.0)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -137,7 +137,39 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v5'
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v6'
+### Перевода сообщений / GlobeSkuf (v1.17.0)
+- Кнопка 🌐 под каждым ЧУЖИМ сообщением (incoming). Своего — нет.
+- Клик по кнопке → под оригиналом появляется перевод (серым курсивом,
+  отделён пунктирной линией). Повторный клик → скрыть. Ещё клик → показать
+  из кэша DOM (data-translated), без запроса к серверу.
+- Сервер: socket-событие 'translate_message' { text, targetLang }
+  → 'translated_message' { original, translated, detectedLang, targetLang }
+  → 'translate_error' { error: 'too_long' | 'api_failed', original }
+- Язык перевода: клиент берёт из navigator.language (2 первые буквы),
+  шлёт в targetLang. Русский видит перевод на русский, англичанин — на английский.
+- API: цепочка из 3 источников, все БЕЗ API-ключа:
+  1) lingva.ml (прокси Google, https://lingva.ml/api/v1/auto/<tl>/<text>)
+  2) MyMemory (api.mymemory.translated.net, лимит ~5000 символов/день)
+  3) Google напрямую (translate.googleapis.com/translate_a/single?client=gtx)
+- ВАЖНО (v1.17.1): каждый источник проверяется на translated !== text.
+  Если вернул исходник — пропускаем, идём к следующему. Это критично,
+  потому что на Render lingva иногда отдаёт оригинал без перевода.
+- Google напрямую с Render-IP отдаёт 429 (бан по IP, не по заголовкам).
+  Поэтому он — последний фолбэк. Локально Google работает как основной.
+- Node.js 18+ — fetch встроенный.
+- Кэш переводов на сервере: Map в RAM, ключ `${targetLang}:${text}`,
+  максимум 500 записей (FIFO). Улетает при рестарте — не критично.
+- Ограничения: текст > 500 символов → 'too_long'. Если все источники
+  не сработали → 'api_failed'.
+- Клиентский матчинг: при получении 'translated_message' пробегаем все
+  .message.incoming, ищем p.textContent === original, вставляем перевод
+  в .translated-text этого сообщения.
+- Файлы: public/client.js (userLang, toggleTranslate, обработчики
+  translated_message / translate_error, кнопка 🌐 в receive_msg),
+  public/style.css (.translate-btn, .translated-text, .hidden),
+  server.js (translateText + кэш + saveTranslation, socket.on('translate_message')),
+  public/sw.js (CACHE_NAME → skuf-chat-v6).
 ### Декорации стола и полки (v1.16.0)
 - Пепельницы: .skuf-decor.ashtray1, .ashtray2 (курилка), .ashtray-p1 (приват, только слева)
   - z-index: 3 (поверх стола/стойки)
@@ -289,6 +321,19 @@ skuf-chat/
   • Файлы: public/client.js (новые элементы в generalDecor/privateDecor),
     public/style.css (стили, позиции, медиа-запросы, фиксы),
     public/sw.js (CACHE_NAME → skuf-chat-v5).
+- v1.17.0 — GlobeSkuf: перевод сообщений по клику
+  • Кнопка 🌐 под каждым чужим сообщением. Клик → перевод, ещё клик → скрыть.
+  • Серверный прокси через цепочку lingva.ml → MyMemory → Google.
+    Все — без API-ключа. fetch встроен в Node 24.
+  • Кэш переводов в RAM сервера (Map, 500 записей, FIFO).
+  • Язык перевода — из navigator.language клиента.
+  • Ограничение: 500 символов на сообщение.
+  • Файлы: public/client.js, public/style.css, server.js, public/sw.js (v6).
+  • Подробности — в разделе 13 → «Перевода сообщений / GlobeSkuf (v1.17.0)».
+- v1.17.1 — фикс GlobeSkuf: отбрасываем источники, вернувшие исходный текст.
+  На Render lingva.ml иногда возвращает оригинал без перевода — теперь
+  каждый источник проверяется на translated !== text, при неудаче идём
+  дальше по цепочке (lingva → mymemory → Google).
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 
@@ -418,5 +463,7 @@ Render Key Value (Redis) — free tier, подходит.
 - .messages-container: height: 100%, z-index: 4 (выше декораций)
 - Лампы .lamp1/2/3: z-index: 50 (поверх сообщений — задумано)
 - Пепельницы/стаканы на столе: z-index: 3 (под сообщениями)
+- Кнопка 🌐 .translate-btn: inline, opacity 0.45, .active → opacity 1, цвет #ffb74d
+- Перевод .translated-text: серый курсив, пунктирная линия сверху, .hidden → display: none
 
 ===== КОНЕЦ ОТЧЁТА =====
