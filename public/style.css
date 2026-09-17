@@ -1129,6 +1129,33 @@ body {
   transform: scale(1.08);
 }
 
+/* --- КНОПКА ФОНОВОГО ЗВУКА (🔊/🔇) --- */
+.mini-sound-btn {
+  background: #1e2a38;
+  border: 1px solid #2a4a6a;
+  font-size: 16px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.mini-sound-btn:hover {
+  background: #2a3e54;
+  transform: scale(1.08);
+}
+
+/* Активное состояние — когда звук включён */
+.mini-sound-btn.active {
+  background: #1e3a2a;
+  border-color: #3a7a4a;
+  box-shadow: 0 0 8px rgba(80, 200, 120, 0.35);
+}
+
+.mini-sound-btn.active:hover {
+  background: #2a4e38;
+}
+
 
 /* --- СЧЁТЧИК ОНЛАЙН --- */
 .online-counter {

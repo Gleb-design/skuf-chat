@@ -56,6 +56,16 @@ const soundIncoming = new Audio('/beer.mp3');
 soundOutgoing.volume = 0.3;
 soundIncoming.volume = 0.5;
 
+// --- ФОНОВЫЙ ЗВУК ГАРАЖА (ambient.mp3) ---
+// По умолчанию ВЫКЛЮЧЕН. Пользователь сам решает — кнопкой 🔊/🔇 в шапке.
+// Выбор хранится в localStorage ('skuf_ambient': 'on' | 'off').
+const ambientSound = new Audio('/ambient.mp3');
+ambientSound.loop = true;
+ambientSound.volume = 0.08; // тихий фон, не «звук»
+
+// Восстановить настройку из localStorage (по умолчанию — off)
+let ambientEnabled = localStorage.getItem('skuf_ambient') === 'on';
+
 // Элементы интерфейса
 const btnGeneral = document.getElementById('btnGeneral');
 const btnPrivate = document.getElementById('btnPrivate');
@@ -481,6 +491,71 @@ if (btnDonate) {
         window.open(DONATE_URL, '_blank', 'noopener');
     });
 }
+
+// --- КНОПКА ФОНОВОГО ЗВУКА 🔊/🔇 ---
+const btnSound = document.getElementById('btnSound');
+
+// Обновить иконку и класс кнопки по текущему состоянию
+function updateSoundButton() {
+    if (!btnSound) return;
+    if (ambientEnabled) {
+        btnSound.textContent = '🔊';
+        btnSound.classList.add('active');
+        btnSound.title = 'Выключить фоновый звук';
+    } else {
+        btnSound.textContent = '🔇';
+        btnSound.classList.remove('active');
+        btnSound.title = 'Включить фоновый звук гаража';
+    }
+}
+
+// Попытка запустить/остановить плеер
+function applyAmbient() {
+    if (ambientEnabled) {
+        // play() возвращает Promise — ловим ошибку автозапуска
+        ambientSound.play().catch((err) => {
+            console.log('🔇 Автозапуск фонового звука заблокирован:', err.message);
+        });
+    } else {
+        ambientSound.pause();
+    }
+}
+
+// Toggle по клику
+if (btnSound) {
+    btnSound.addEventListener('click', () => {
+        ambientEnabled = !ambientEnabled;
+        localStorage.setItem('skuf_ambient', ambientEnabled ? 'on' : 'off');
+        updateSoundButton();
+        applyAmbient();
+    });
+}
+
+// Инициализация при загрузке: показать правильную иконку
+updateSoundButton();
+
+// Пробуем включить, только если пользователь ранее включал.
+// Браузер может заблокировать автозапуск — тогда звук включится
+// при первом клике где угодно по странице (жест пользователя).
+if (ambientEnabled) {
+    applyAmbient();
+
+    // Fallback: ждём первого клика пользователя и запускаем
+    const kickstart = () => {
+        applyAmbient();
+        document.removeEventListener('click', kickstart);
+    };
+    document.addEventListener('click', kickstart, { once: true });
+}
+
+// Пауза, когда вкладка неактивна. Возврат — играем, если включено.
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        ambientSound.pause();
+    } else if (ambientEnabled) {
+        applyAmbient();
+    }
+});
 
 // ПРИЕМ СООБЩЕНИЙ
 socket.on('receive_msg', (data) => {

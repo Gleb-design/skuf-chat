@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skuf-chat-v3';
+const CACHE_NAME = 'skuf-chat-v4';
 const assets = [
   '/',
   '/index.html',
@@ -6,7 +6,8 @@ const assets = [
   '/client.js',
   '/icon.png',
   '/click.mp3',
-  '/beer.mp3'
+  '/beer.mp3',
+  '/ambient.mp3'
 ];
 
 // Установка сервис-воркера и кэширование интерфейса
