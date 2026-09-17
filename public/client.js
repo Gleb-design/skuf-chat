@@ -149,7 +149,8 @@ function addAllDecor() {
     if (messagesWrapper.querySelector('.skuf-decor')) return;
 
     // Курилочные декорации (2 дыма + телевизор + свечение от него)
-    const generalDecor = ['lamp1', 'lamp2', 'lamp3', 'smoke', 'smoke2', 'table', 'tv-antenna', 'tv', 'tv-glow'];
+        // Курилочные декорации (2 дыма + 2 пепельницы + телевизор + свечение от него)
+    const generalDecor = ['lamp1', 'lamp2', 'lamp3', 'smoke', 'smoke2', 'ashtray1', 'ashtray2', 'glass-g1', 'glass-g2', 'glass-g3', 'glass-g4', 'shelf', 'table', 'tv-antenna', 'tv', 'tv-glow'];
     generalDecor.forEach((name) => {
         const el = document.createElement('div');
         el.className = `skuf-decor ${name}`;
@@ -157,7 +158,9 @@ function addAllDecor() {
     });
 
     // Приватные декорации (2 дыма)
-    const privateDecor = ['bar-counter', 'bottle1', 'bottle2', 'glass', 'cat', 'smoke-p1', 'smoke-p2'];
+        // Приватные декорации (2 дыма + полка с бутылками)
+    // Приватные декорации (2 дыма + полка с бутылками + 2 стакана)
+    const privateDecor = ['bar-counter', 'bottle1', 'bottle2', 'glass', 'glass2', 'cat', 'shelf-private', 'ashtray-p1', 'smoke-p1'];
     privateDecor.forEach((name) => {
         const el = document.createElement('div');
         el.className = `skuf-decor ${name}`;
