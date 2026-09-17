@@ -128,7 +128,7 @@ body {
   flex-direction: column;
   gap: 12px;
   position: relative;
-  z-index: 3;
+  z-index: 4;
   background: transparent;
 }
 
