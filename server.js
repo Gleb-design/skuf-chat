@@ -527,6 +527,39 @@ if (process.env.REDIS_URL) {
     console.log('ℹ️ REDIS_URL не задан — работаем с историей в RAM');
 }
 
+// --- ПЕРЕВОД СООБЩЕНИЙ (GlobeSkuf) ---
+// Кэш в RAM: ключ = `${targetLang}:${text}`, значение = { translated, detectedLang }
+// Улетает при рестарте сервера — и ладно, это лишь экономия запросов к Google.
+const translationCache = new Map();
+const TRANSLATION_CACHE_MAX = 500;
+
+async function translateText(text, targetLang) {
+    const cacheKey = `${targetLang}:${text}`;
+    if (translationCache.has(cacheKey)) {
+        return translationCache.get(cacheKey);
+    }
+
+    const url =
+        'https://translate.googleapis.com/translate_a/single' +
+        `?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Google вернул ${res.status}`);
+
+    const data = await res.json();
+    // Формат ответа: [[["перевод","оригинал",null,null,10],["вторая часть",...]], ..., "ru"]
+    const translated = (data[0] || []).map((chunk) => chunk[0]).join('');
+    const detectedLang = data[2] || 'unknown';
+
+    if (translationCache.size >= TRANSLATION_CACHE_MAX) {
+        const firstKey = translationCache.keys().next().value;
+        translationCache.delete(firstKey);
+    }
+    translationCache.set(cacheKey, { translated, detectedLang });
+
+    return { translated, detectedLang };
+}
+
 // RAM-фолбэк (используется, если Redis недоступен)
 let globalMessagesHistory = [];
 
@@ -906,6 +939,28 @@ socket.on('init_session', async ({ sessionKey }) => {
             });
         }
     });
+
+    // --- ПЕРЕВОД СООБЩЕНИЯ (по запросу клиента, GlobeSkuf) ---
+socket.on('translate_message', async ({ text, targetLang } = {}) => {
+    if (!text || typeof text !== 'string' || !targetLang) return;
+    if (text.length > 500) {
+        socket.emit('translate_error', { error: 'too_long', original: text });
+        return;
+    }
+
+    try {
+        const result = await translateText(text, targetLang);
+        socket.emit('translated_message', {
+            original: text,
+            translated: result.translated,
+            detectedLang: result.detectedLang,
+            targetLang
+        });
+    } catch (err) {
+        console.warn('⚠️ Ошибка перевода:', err.message);
+        socket.emit('translate_error', { error: 'api_failed', original: text });
+    }
+});
 
         socket.on('disconnect', () => {
         if (waitingSkuf === socket) waitingSkuf = null;

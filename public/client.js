@@ -4,6 +4,61 @@ let myId = null;
 let myUsername = null;
 let currentMode = 'general';
 
+// --- ПЕРЕВОД СООБЩЕНИЙ (GlobeSkuf) ---
+// Язык пользователя — из браузера. 'ru', 'en', 'de' и т.д.
+const userLang = (navigator.language || 'ru').slice(0, 2).toLowerCase();
+
+// --- ПЕРЕВОД СООБЩЕНИЯ ---
+// btn  — кнопка 🌐
+// out  — блок, куда положить перевод
+// text — оригинальный текст
+function toggleTranslate(btn, out, text) {
+    // Если перевод уже показан — скрываем (toggle)
+    if (!out.classList.contains('hidden')) {
+        out.classList.add('hidden');
+        btn.classList.remove('active');
+        return;
+    }
+
+    // Если перевод уже был получен — показываем из кэша
+    if (out.dataset.translated) {
+        out.classList.remove('hidden');
+        btn.classList.add('active');
+        return;
+    }
+
+    // Иначе — просим сервер перевести
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    socket.emit('translate_message', { text, targetLang: userLang });
+}
+
+// Обработчик ответа от сервера — находит все сообщения с таким текстом и вставляет перевод
+socket.on('translated_message', ({ original, translated }) => {
+    document.querySelectorAll('.message.incoming').forEach((msg) => {
+        const p = msg.querySelector('p');
+        const out = msg.querySelector('.translated-text');
+        const btn = msg.querySelector('.translate-btn');
+        if (!p || !out || !btn) return;
+        if (p.textContent !== original) return;
+
+        out.textContent = translated;
+        out.dataset.translated = translated;
+        out.classList.remove('hidden');
+        btn.textContent = '🌐';
+        btn.classList.add('active');
+        btn.disabled = false;
+    });
+});
+
+// Обработчик ошибки перевода
+socket.on('translate_error', () => {
+    document.querySelectorAll('.translate-btn').forEach((b) => {
+        b.textContent = '🌐';
+        b.disabled = false;
+    });
+});
+
 // --- SESSION KEY: постоянный ID браузера для сохранения ника ---
 // Генерируется один раз, живёт в localStorage, переживает перезагрузку страницы.
 function getOrCreateSessionKey() {
@@ -585,9 +640,18 @@ socket.on('receive_msg', (data) => {
             <div class="msg-body">
                 <span class="username">${data.username}</span>
                 <p>${data.text}</p>
+                <button class="translate-btn" type="button" title="Перевести">🌐</button>
+                <div class="translated-text hidden"></div>
             </div>
         `;
-        
+
+        // Вешаем обработчик на кнопку 🌐
+        const btn = msgDiv.querySelector('.translate-btn');
+        const out = msgDiv.querySelector('.translated-text');
+        if (btn && out) {
+            btn.addEventListener('click', () => toggleTranslate(btn, out, data.text));
+        }
+
         soundIncoming.currentTime = 0;
         soundIncoming.play().catch(err => console.log(err));
     }
