@@ -533,31 +533,90 @@ if (process.env.REDIS_URL) {
 const translationCache = new Map();
 const TRANSLATION_CACHE_MAX = 500;
 
+// --- ПЕРЕВОД: лингва + mymemory + гугл-фолбэк ---
+// Google с Render-IP отдаёт 429 (бан по IP, не по заголовкам).
+// Основной — lingva.ml (прокси Google). Фолбэк — MyMemory.
 async function translateText(text, targetLang) {
     const cacheKey = `${targetLang}:${text}`;
     if (translationCache.has(cacheKey)) {
         return translationCache.get(cacheKey);
     }
 
-    const url =
-        'https://translate.googleapis.com/translate_a/single' +
-        `?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+    // 1. Lingva.ml (бесплатный прокси Google Translate)
+    try {
+        const url = `https://lingva.ml/api/v1/auto/${encodeURIComponent(targetLang)}/${encodeURIComponent(text)}`;
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.translation && data.translation !== text) {
+                return saveTranslation(cacheKey, data.translation, 'auto');
+            } else {
+                console.warn('⚠️ lingva вернул тот же текст — пропускаем');
+            }
+        } else {
+            console.warn(`⚠️ lingva вернул ${res.status}`);
+        }
+    } catch (err) {
+        console.warn('⚠️ lingva не сработал:', err.message);
+    }
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Google вернул ${res.status}`);
+    // 2. MyMemory (лимит ~5000 символов/день без ключа)
+    try {
+        // MyMemory требует langpair формата "sl|tl". 'auto' не поддерживает.
+        // Определяем источник как "en" — часто срабатывает для латиницы.
+        // (Если текст русский — всё равно попробуем en|ru, MyMemory сам определит.)
+        const langpair = `en|${encodeURIComponent(targetLang)}`;
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`;
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const translated = data?.responseData?.translatedText;
+            if (translated && translated !== text) {
+                return saveTranslation(cacheKey, translated, 'en');
+            }
+        } else {
+            console.warn(`⚠️ mymemory вернул ${res.status}`);
+        }
+    } catch (err) {
+        console.warn('⚠️ mymemory не сработал:', err.message);
+    }
 
-    const data = await res.json();
-    // Формат ответа: [[["перевод","оригинал",null,null,10],["вторая часть",...]], ..., "ru"]
-    const translated = (data[0] || []).map((chunk) => chunk[0]).join('');
-    const detectedLang = data[2] || 'unknown';
+    // 3. Финальный фолбэк — Google (может сработать, если бан случайный)
+    try {
+        const url =
+            'https://translate.googleapis.com/translate_a/single' +
+            `?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (res.ok) {
+            const data = await res.json();
+            const translated = (data[0] || []).map((c) => c[0]).join('');
+            if (translated && translated !== text) {
+                return saveTranslation(cacheKey, translated, data[2] || 'auto');
+            }
+            throw new Error('Google вернул тот же текст');
+        } else {
+            throw new Error(`Google вернул ${res.status}`);
+        }
+    } catch (err) {
+        console.warn('⚠️ Google (последний фолбэк) не сработал:', err.message);
+    }
 
+    throw new Error('Все источники перевода недоступны');
+}
+
+// Хелпер: положить перевод в кэш и вернуть результат
+function saveTranslation(cacheKey, translated, detectedLang) {
     if (translationCache.size >= TRANSLATION_CACHE_MAX) {
         const firstKey = translationCache.keys().next().value;
         translationCache.delete(firstKey);
     }
-    translationCache.set(cacheKey, { translated, detectedLang });
-
-    return { translated, detectedLang };
+    const result = { translated, detectedLang };
+    translationCache.set(cacheKey, result);
+    return result;
 }
 
 // RAM-фолбэк (используется, если Redis недоступен)
