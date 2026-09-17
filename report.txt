@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.15.0
+Версия: v1.16.0
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.15.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.16.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.15.0
+- Стабильная версия: v1.16.0
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
   • Fallback в RAM, если Redis недоступен
@@ -62,7 +62,7 @@
 - beer.mp3 (чужое сообщение) — volume 0.5
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v4)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v5)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -87,7 +87,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v4' (актуально с v1.15.0)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v5' (актуально с v1.16.0)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -137,7 +137,27 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v4'
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v5'
+### Декорации стола и полки (v1.16.0)
+- Пепельницы: .skuf-decor.ashtray1, .ashtray2 (курилка), .ashtray-p1 (приват, только слева)
+  - z-index: 3 (поверх стола/стойки)
+  - Позиционированы строго под своими дымами (ashtray1 ↔ smoke, ashtray2 ↔ smoke2, ashtray-p1 ↔ smoke-p1)
+  - Дым центрируется над пепельницей через margin-left / margin-right
+- Стаканы в курилке: .glass-g1 … .glass-g4 (4 шт., на столе, разные размеры и позиции)
+  - left: 8% / 20% / 47% и right: 10%, bottom: 22-24px, z-index: 3
+- Стаканы в привате: .glass (центр), .glass2 (левее на 50px) — на стойке, bottom: 40px
+- Полка с бутылками (курилка): .shelf
+  - left: 15%, right: 15% (растянута на ~70% ширины стены), top: 180px
+  - Доска и кронштейны — через ::before и ::after
+  - Бутылки — фоновая SVG (10 шт., viewBox 600×60), background-size: 100% 60px
+  - Медиа-запрос @media (max-width: 768px): background-size: auto 60px (бутылки не плющит на мобилке)
+- Полка с бутылками (приват): .shelf-private
+  - left: 20%, right: 20% (60% ширины), top: 130px
+  - Бутылки — SVG (8 шт., винных/крепких, viewBox 480×60)
+  - Тот же медиа-запрос
+- ВАЖНО: z-index сообщений = 4 (.messages-container), выше декораций (z=2-3),
+  чтобы стаканы/пепельницы не перекрывали текст. Лампы в курилке — z=50 (поверх текста, это задумано).
+- Фикс длинных слов без пробелов: .msg-body → overflow-wrap: anywhere + word-break: break-word + min-width: 0
 ### Приват — дополнение v1.7.0: Кот 🐈
 - .skuf-decor.cat — контейнер 125×72px, справа на барной стойке (right: 26%, bottom: 40px)
 - Внутри — <img src="/cat.svg"> (SVG-силуэт спящего кота, файл в public/)
@@ -243,6 +263,32 @@ skuf-chat/
   • Локально секрет живёт в .env (в .gitignore).
   • Временный /admin/debug удалён после отладки.
   • Проверено на проде: /admin/list-codes и /admin/add-code работают.
+- v1.15.0 — фоновый звук гаража:
+  • public/ambient.mp3 — сверчки + ветер, ~45 сек, зациклен (loop = true)
+  • Кнопка 🔊/🔇 в шапке слева от 🍺 (id="btnSound", класс .mini-sound-btn)
+  • По умолчанию ВЫКЛЮЧЕН. Toggle → localStorage ('skuf_ambient': 'on'/'off').
+  • Громкость 0.08. Автозапуск через kickstart при первом клике.
+  • Пауза на неактивной вкладке через visibilitychange.
+  • sw.js: CACHE_NAME поднят до v4, '/ambient.mp3' добавлен в assets.
+  • Файлы: public/ambient.mp3, public/index.html, public/style.css,
+    public/client.js, public/sw.js.
+- v1.16.0 — атмосфера: пепельницы, стаканы, растянутые полки
+  • Пепельницы в курилке (2 шт., под дымами) и в привате (1 шт., слева).
+    z-index: 3 (поверх стола/стойки), дым центрируется через margin.
+  • 4 стакана на столе в курилке (.glass-g1…g4) — разные размеры и позиции.
+  • Полка с бутылками в курилке (.shelf) растянута на ~70% ширины стены,
+    top: 180px. Бутылки — SVG на 10 шт. (viewBox 600×60).
+  • Полка с бутылками в привате (.shelf-private) растянута на 60% ширины,
+    top: 130px. Бутылки — SVG на 8 шт. (viewBox 480×60).
+  • Медиа-запрос для узких экранов: background-size: auto 60px,
+    чтобы бутылки на полке не плющило на мобилке.
+  • Фикс: длинные слова без пробелов больше не вылезают за край
+    пузыря (.msg-body → overflow-wrap: anywhere + word-break + min-width: 0).
+  • Фикс z-index: сообщения (.messages-container) подняты до z=4,
+    чтобы декор (z=2-3) их не перекрывал. Лампы — z=50 (поверх, задумано).
+  • Файлы: public/client.js (новые элементы в generalDecor/privateDecor),
+    public/style.css (стили, позиции, медиа-запросы, фиксы),
+    public/sw.js (CACHE_NAME → skuf-chat-v5).
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 
@@ -339,6 +385,11 @@ r/InternetIsBeautiful, Indie Hackers, Product Hunt, Hacker News).
 - ✅ Фоновый звук гаража (сверчки + ветер) — СДЕЛАНО в v1.15.0
   (подробности — в разделе 13). Идеи на развитие: выбор звука
   (сверчки / радио / дождь) через отдельную мини-панель.
+- ✅ Пепельницы под дымами (курилка + приват) — СДЕЛАНО в v1.16.0
+- ✅ Стаканы на столе в курилке (4 шт.) и в привате (2 шт.) — СДЕЛАНО в v1.16.0
+- ✅ Растянутые полки с бутылками (курилка ~70%, приват ~60%) — СДЕЛАНО в v1.16.0
+  ⏳ Идеи на развитие: разные пресеты полок («бар», «пивная», «винный шкаф»);
+  бутылки с подсветкой; на полке — таблички/ценники.
 - Пиксельный шрифт для ников
 - ✅ Скуфский набор эмодзи (v1.12.0) — панель на 36 смайлов в 5 категориях.
   ⏳ Идеи на развитие: вкладки категорий в панели (Быт / Реакции / ICQ / Особое),
@@ -364,6 +415,8 @@ Render Key Value (Redis) — free tier, подходит.
 - Лампы поверх сообщений: z-index: 50
 - Шапка/input-area/private-controls: z-index: 10
 - .messages-wrapper: position: relative, overflow: hidden
-- .messages-container: height: 100%, z-index: 3
+- .messages-container: height: 100%, z-index: 4 (выше декораций)
+- Лампы .lamp1/2/3: z-index: 50 (поверх сообщений — задумано)
+- Пепельницы/стаканы на столе: z-index: 3 (под сообщениями)
 
 ===== КОНЕЦ ОТЧЁТА =====
