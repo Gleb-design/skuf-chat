@@ -1800,3 +1800,22 @@ body {
 .stats-counter.hidden {
   display: none !important;
 }
+
+
+/* ======================================================= */
+/* УБИРАЕМ ОБВОДКУ И TAP-HIGHLIGHT У КНОПОК                */
+/* ======================================================= */
+
+/* Убираем системную обводку при клике мышью (Tab оставляет) */
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Убираем голубую вспышку при тапе на мобильных (WebKit/Blink) */
+button,
+a,
+.mode-btn,
+.emoji-btn,
+.emoji-item {
+  -webkit-tap-highlight-color: transparent;
+}
