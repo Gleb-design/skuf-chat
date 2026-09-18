@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.16.5
+Версия: v1.18.0
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.16.5 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.18.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,8 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.16.5
+- Стабильная версия: v1.18.0
+- Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
   • Fallback в RAM, если Redis недоступен
@@ -62,7 +63,7 @@
 - beer.mp3 (чужое сообщение) — volume 0.1
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v6)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v7)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -87,7 +88,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v6' (актуально с v1.17.0)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v7' (актуально с v1.18.0)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -350,6 +351,19 @@ skuf-chat/
 - v1.16.5 — фикс UX: убрана системная обводка кнопок при клике мышью
   (outline при Tab сохранён) + отключён -webkit-tap-highlight-color
   на мобильных. Файл: public/style.css.
+- v1.18.0 — свой домен + SEO-подготовка:
+• Куплен домен skuf-chat.xyz (hoster.by). NS: u1.hoster.by / u2.hoster.by.
+• A-запись: @ → 216.24.57.1 (Render). CNAME: www → skuf-chat.onrender.com.
+• OG-теги и canonical в index.html обновлены на skuf-chat.xyz.
+• Добавлены public/robots.txt и public/sitemap.xml.
+• Добавлен public/googleacf39dfc2c55d662.html — подтверждение Google Search Console.
+• CACHE_NAME → skuf-chat-v7. В assets добавлены manifest.json,
+  og-image.png, cat.svg.
+• Google Search Console: владение подтверждено, индексирование запрошено.
+• Файлы: public/index.html, public/robots.txt, public/sitemap.xml,
+  public/googleacf39dfc2c55d662.html, public/sw.js, report.txt.
+⏳ Осталось: sitemap в Google (статус «Не получено» — ждём),
+  Certificate для www (Verify прошёл, SSL выдаётся), Яндекс.Вебмастер.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 
