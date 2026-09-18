@@ -1268,7 +1268,7 @@ body {
 }
 
 .chat-input-area button {
-  background: #0ea5e9;
+  background: #594582;
   color: #fff;
   border: none;
   padding: 0 20px;
@@ -1276,7 +1276,7 @@ body {
   cursor: pointer;
   font-weight: bold;
 }
-.chat-input-area button:hover { background: #0284c7; }
+.chat-input-area button:hover { background: #472b6d; }
 
 /* ======================================================= */
 /* СТИЛИ ДЛЯ САМИХ СООБЩЕНИЙ                               */
@@ -1321,7 +1321,7 @@ body {
   justify-content: flex-end;
 }
 .message.outgoing .msg-body {
-  background: #0ea5e9;
+  background: #594582;
   color: #fff;
   border-radius: 12px 12px 0 12px;
   max-width: 70%;
@@ -1380,7 +1380,7 @@ body {
   
   .mode-btn.active {
     background: #26262e; /* Цвет активной кнопки сливается с фоном чата */
-    border-bottom: 2px solid #0ea5e9; /* Красивая полоска активности */
+    border-bottom: 2px solid #594582; /* Красивая полоска активности */
   }
 
   .sidebar-footer { display: none; }
@@ -1427,7 +1427,7 @@ body {
 }
 
 .input-row button {
-  background: #0ea5e9;
+  background: #594582;
   color: #fff;
   border: none;
   padding: 0 16px;
@@ -1578,11 +1578,11 @@ body {
 }
 
 #btnNextSkuf {
-  background: #0ea5e9;
+  background: #594582;
   color: #fff;
 }
 #btnNextSkuf:hover {
-  background: #0284c7;
+  background: #472b6d;
 }
 
 #btnCancelSearch {
@@ -1701,8 +1701,8 @@ body {
 }
 
 .emoji-btn.active {
-    background: #0ea5e9;
-    border-color: #0ea5e9;
+    background: #594582;
+    border-color: #472b6d;
 }
 
 /* Панель смайлов — absolute над полем ввода */
