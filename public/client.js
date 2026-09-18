@@ -53,8 +53,8 @@ const isAdmin = checkAdminMode();
 // --- ЗВУКОВОЙ ДВИЖОК ---
 const soundOutgoing = new Audio('/click.mp3');
 const soundIncoming = new Audio('/beer.mp3');
-soundOutgoing.volume = 0.3;
-soundIncoming.volume = 0.5;
+soundOutgoing.volume = 0.1;
+soundIncoming.volume = 0.1;
 
 // --- ФОНОВЫЙ ЗВУК ГАРАЖА (ambient.mp3) ---
 // По умолчанию ВЫКЛЮЧЕН. Пользователь сам решает — кнопкой 🔊/🔇 в шапке.
