@@ -16,7 +16,7 @@
 8) Всегда проверяем локально (npm start → http://localhost:3000) ПЕРЕД коммитом.
 
 ## 1. ТЕКУЩИЙ СТАТУС
-- Production: https://skuf-chat.onrender.com
+- Production: https://skuf-chat.xyz
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
