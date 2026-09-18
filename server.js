@@ -527,98 +527,6 @@ if (process.env.REDIS_URL) {
     console.log('ℹ️ REDIS_URL не задан — работаем с историей в RAM');
 }
 
-// --- ПЕРЕВОД СООБЩЕНИЙ (GlobeSkuf) ---
-// Кэш в RAM: ключ = `${targetLang}:${text}`, значение = { translated, detectedLang }
-// Улетает при рестарте сервера — и ладно, это лишь экономия запросов к Google.
-const translationCache = new Map();
-const TRANSLATION_CACHE_MAX = 500;
-
-// --- ПЕРЕВОД: лингва + mymemory + гугл-фолбэк ---
-// Google с Render-IP отдаёт 429 (бан по IP, не по заголовкам).
-// Основной — lingva.ml (прокси Google). Фолбэк — MyMemory.
-async function translateText(text, targetLang) {
-    const cacheKey = `${targetLang}:${text}`;
-    if (translationCache.has(cacheKey)) {
-        return translationCache.get(cacheKey);
-    }
-
-    // 1. Lingva.ml (бесплатный прокси Google Translate)
-    try {
-        const url = `https://lingva.ml/api/v1/auto/${encodeURIComponent(targetLang)}/${encodeURIComponent(text)}`;
-        const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.translation && data.translation !== text) {
-                return saveTranslation(cacheKey, data.translation, 'auto');
-            } else {
-                console.warn('⚠️ lingva вернул тот же текст — пропускаем');
-            }
-        } else {
-            console.warn(`⚠️ lingva вернул ${res.status}`);
-        }
-    } catch (err) {
-        console.warn('⚠️ lingva не сработал:', err.message);
-    }
-
-    // 2. MyMemory (лимит ~5000 символов/день без ключа)
-    try {
-        // MyMemory требует langpair формата "sl|tl". 'auto' не поддерживает.
-        // Определяем источник как "en" — часто срабатывает для латиницы.
-        // (Если текст русский — всё равно попробуем en|ru, MyMemory сам определит.)
-        const langpair = `en|${encodeURIComponent(targetLang)}`;
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`;
-        const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-        });
-        if (res.ok) {
-            const data = await res.json();
-            const translated = data?.responseData?.translatedText;
-            if (translated && translated !== text) {
-                return saveTranslation(cacheKey, translated, 'en');
-            }
-        } else {
-            console.warn(`⚠️ mymemory вернул ${res.status}`);
-        }
-    } catch (err) {
-        console.warn('⚠️ mymemory не сработал:', err.message);
-    }
-
-    // 3. Финальный фолбэк — Google (может сработать, если бан случайный)
-    try {
-        const url =
-            'https://translate.googleapis.com/translate_a/single' +
-            `?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (res.ok) {
-            const data = await res.json();
-            const translated = (data[0] || []).map((c) => c[0]).join('');
-            if (translated && translated !== text) {
-                return saveTranslation(cacheKey, translated, data[2] || 'auto');
-            }
-            throw new Error('Google вернул тот же текст');
-        } else {
-            throw new Error(`Google вернул ${res.status}`);
-        }
-    } catch (err) {
-        console.warn('⚠️ Google (последний фолбэк) не сработал:', err.message);
-    }
-
-    throw new Error('Все источники перевода недоступны');
-}
-
-// Хелпер: положить перевод в кэш и вернуть результат
-function saveTranslation(cacheKey, translated, detectedLang) {
-    if (translationCache.size >= TRANSLATION_CACHE_MAX) {
-        const firstKey = translationCache.keys().next().value;
-        translationCache.delete(firstKey);
-    }
-    const result = { translated, detectedLang };
-    translationCache.set(cacheKey, result);
-    return result;
-}
-
 // RAM-фолбэк (используется, если Redis недоступен)
 let globalMessagesHistory = [];
 
@@ -998,28 +906,6 @@ socket.on('init_session', async ({ sessionKey }) => {
             });
         }
     });
-
-    // --- ПЕРЕВОД СООБЩЕНИЯ (по запросу клиента, GlobeSkuf) ---
-socket.on('translate_message', async ({ text, targetLang } = {}) => {
-    if (!text || typeof text !== 'string' || !targetLang) return;
-    if (text.length > 500) {
-        socket.emit('translate_error', { error: 'too_long', original: text });
-        return;
-    }
-
-    try {
-        const result = await translateText(text, targetLang);
-        socket.emit('translated_message', {
-            original: text,
-            translated: result.translated,
-            detectedLang: result.detectedLang,
-            targetLang
-        });
-    } catch (err) {
-        console.warn('⚠️ Ошибка перевода:', err.message);
-        socket.emit('translate_error', { error: 'api_failed', original: text });
-    }
-});
 
         socket.on('disconnect', () => {
         if (waitingSkuf === socket) waitingSkuf = null;
