@@ -235,14 +235,36 @@ socket.on('online_count', (count) => {
 });
 
 // --- СТАТИСТИКА ЗА СЕГОДНЯ ---
-const statsMessages = document.getElementById('statsMessages');
-const statsUsers = document.getElementById('statsUsers');
-const statsPeak = document.getElementById('statsPeak');
+// Блок создаётся ДИНАМИЧЕСКИ и ТОЛЬКО для админа,
+// чтобы Googlebot не видел "0 сообщений" в исходном HTML.
 
-// Показываем плашку статистики ТОЛЬКО админу
-const statsCounterEl = document.getElementById('statsCounter');
-if (isAdmin && statsCounterEl) {
-    statsCounterEl.classList.remove('hidden');
+let statsMessages = null;
+let statsUsers = null;
+let statsPeak = null;
+
+if (isAdmin) {
+    const statsCounterEl = document.createElement('div');
+    statsCounterEl.id = 'statsCounter';
+    statsCounterEl.className = 'stats-counter';
+    statsCounterEl.innerHTML = `
+        📊 Сегодня: <span id="statsMessages">0 сообщений</span> ·
+        <span id="statsUsers">0 скуфов</span> ·
+        пик <span id="statsPeak">0</span>
+    `;
+
+    // Вставляем в шапку — после счётчика онлайна
+    const header = document.querySelector('.chat-header');
+    const onlineCounterEl = document.getElementById('onlineCounter');
+    if (header && onlineCounterEl) {
+        onlineCounterEl.insertAdjacentElement('afterend', statsCounterEl);
+    } else if (header) {
+        header.appendChild(statsCounterEl);
+    }
+
+    // Теперь находим уже созданные элементы
+    statsMessages = document.getElementById('statsMessages');
+    statsUsers = document.getElementById('statsUsers');
+    statsPeak = document.getElementById('statsPeak');
 }
 
 // Обновляем DOM-числа, когда сервер присылает свежие данные
