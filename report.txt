@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.18.0
+Версия: v1.20.0
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.18.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.20.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.18.0
+- Стабильная версия: v1.20.0
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -47,6 +47,14 @@
   Fallback в RAM (ramStats + Set users), обнуляется при смене суток UTC.
 - Очистка каждые 30 мин
 - При подключении — новому пользователю отправляется история
+
+- REPLY (v1.19.0): у каждого сообщения есть messageId (msg_<ts>_<rand6>).
+  В messageData — senderSessionKey, timestamp, replyTo. Всё в Redis.
+  Клиент шлёт { text, replyTo } в send_global_msg (объект, не строка).
+- ПРИГЛАШЕНИЯ В ПРИВАТ (v1.20.0): Map sessionsByKey (sessionKey → socket),
+  заполняется в init_session, чистится в disconnect. Антиспам 1/10сек.
+  События: invite_private, private_invite, private_invite_response,
+  invite_sent, invite_error, private_invite_declined.
 
 ## 4. РУЛЕТКА 1-НА-1
 - Переменная waitingSkuf (глобальная)
@@ -364,6 +372,55 @@ skuf-chat/
   public/googleacf39dfc2c55d662.html, public/sw.js, report.txt.
 ⏳ Осталось: sitemap в Google (статус «Не получено» — ждём),
   Certificate для www (Verify прошёл, SSL выдаётся), Яндекс.Вебмастер.
+- v1.18.1 — SEO-фикс: блок статистики админа больше не в исходном HTML
+  • Проблема: Google в сниппете показывал «Сегодня: 0 сообщений» —
+    динамический блок <div id="statsCounter"> был в статичном HTML
+    и Googlebot его видел, игнорируя meta-description.
+  • Решение: блок статистики теперь создаётся ДИНАМИЧЕСКИ в client.js
+    ТОЛЬКО если включён админ-режим (?admin=...). Для Googlebot и обычных
+    юзеров его в HTML вообще нет → Google берёт meta-description.
+  • Файлы: public/index.html (удалён statsCounter), public/client.js
+    (создание через createElement + insertAdjacentElement).
+- v1.19.0 — REPLY: ответы на сообщения в общей флудилке
+  • Кнопка ↩️ на чужих сообщениях. На десктопе — при hover, снаружи пузыря
+    справа. На мобилке (≤768px) — всегда видны, внутри пузыря в правом
+    верхнем углу.
+  • Клик ↩️ → плашка «Ответ на: …» над полем ввода + кнопка ✕ для отмены.
+  • Отправка: socket.emit('send_global_msg', { text, replyTo }) — объект
+    вместо строки. replyTo содержит { messageId, username, preview }.
+  • Рендер: при receive_msg, если data.replyTo есть — над текстом
+    появляется .msg-reply-quote с ником и превью (80 символов).
+  • Клик по цитате → скролл к оригиналу (поиск [data-message-id="..."]
+    в DOM) + подсветка .highlight-msg (1.2 сек жёлтым). Если оригинала
+    нет — тихо ничего.
+  • Сервер: generateMessageId() → 'msg_<timestamp>_<random6>'.
+    messageData теперь содержит messageId, senderSessionKey, timestamp,
+    replyTo. Всё сохраняется в Redis → цитаты переживают F5.
+  • Файлы: server.js (generateMessageId, send_global_msg с payload,
+    история с новыми полями), public/client.js (обработчики, setReplyTarget,
+    clearReplyTarget), public/index.html (плашка replyTargetBar),
+    public/style.css (стили цитаты, кнопок, плашки, подсветки).
+- v1.20.0 — ПРИГЛАШЕНИЕ В ПРИВАТ ИЗ ОБЩЕЙ ФЛУДИЛКИ
+  • Кнопка 🎯 рядом с ↩️ на чужих сообщениях в general (только если у
+    сообщения есть senderSessionKey).
+  • Клик 🎯 → socket.emit('invite_private', { targetSessionKey }).
+  • Сервер ищет сокет получателя в Map sessionsByKey (заполняется в
+    init_session, чистится в disconnect).
+  • Проверки: сам себя, антиспам (1 раз в 10 сек), оффлайн, занят (в привате).
+  • Получателю: socket.emit('private_invite', { fromUsername }) → внизу
+    появляется плашка «🎯 [Ник] зовёт перетереть в привате» с кнопками
+    [Принять] [Отклонить]. Автоскрытие через 30 сек (авто-отказ).
+  • Принять → сервер создаёт комнату room_<id1>_<id2>, оба покидают
+    general, получают private_found (та же логика, что в рулетке).
+  • Отклонить → отправителю private_invite_declined.
+  • Функции switchToPrivateModeUI() / switchToGeneralModeUI() —
+    вынесены отдельно, чтобы не эмитить search_private при приглашении.
+  • Файлы: server.js (sessionsByKey, findSocketBySessionKey,
+    checkInviteCooldown, invite_private, private_invite_response),
+    public/client.js (кнопка 🎯, обработчики, showPrivateInviteBar,
+    hidePrivateInviteBar, switchToPrivateModeUI/switchToGeneralModeUI),
+    public/index.html (плашка privateInviteBar), public/style.css
+    (стили плашки и кнопок, мобильный медиа-запрос).
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 
@@ -446,6 +503,8 @@ r/InternetIsBeautiful, Indie Hackers, Product Hunt, Hacker News).
 4. Indie Hackers — пост про реализацию (CSS-лампы, атмосфера)
 
 ### ФИЧИ (из старого бэклога)
+0. ✅ Reply на сообщения (v1.19.0) — СДЕЛАНО
+0.1. ✅ Приглашение в приват из флудилки (v1.20.0) — СДЕЛАНО
 1. Статусы собеседника (развить typing до "в гараже/отошёл/уснул")
 2. ✅ Простая статистика (v1.11.0) — сделана в минимальном виде: сообщений
    за сутки, уникальных скуфов, пик онлайна. Показывается в шапке.
@@ -476,10 +535,16 @@ Free PostgreSQL удаляется через 30 дней — для монет�
 Render Key Value (Redis) — free tier, подходит.
 
 ## 18. ВАЖНЫЕ ФАЙЛЫ (для быстрого контекста)
-- server.js — основной сервер (Socket.io, rate limit, модерация, счётчик, typing, next_skuf)
-- public/client.js — вся клиентская логика + addAllDecor() + переключение тем
-- public/index.html — вёрстка + OG-теги + обёртка .messages-wrapper
-- public/style.css — стили, темы (курилка/приват), декорации, keyframes
+- server.js — основной сервер (Socket.io, rate limit, модерация, счётчик,
+  typing, next_skuf, reply-поля в send_global_msg, invite_private)
+- public/client.js — вся клиентская логика + addAllDecor() + переключение тем +
+  reply (setReplyTarget/clearReplyTarget) + приглашения (showPrivateInviteBar) +
+  switchToPrivateModeUI/switchToGeneralModeUI
+- public/index.html — вёрстка + OG-теги + обёртка .messages-wrapper +
+  плашки replyTargetBar и privateInviteBar
+- public/style.css — стили, темы (курилка/приват), декорации, keyframes,
+  цитаты reply (.msg-reply-quote), кнопки действий (.msg-actions),
+  плашка приглашений (.private-invite-bar)
 - public/sw.js — service worker
 
 ## 19. ТЕКУЩИЕ ПРАВИЛА ПО ТЕМАМ (важно, чтобы не сломать!)
@@ -495,5 +560,19 @@ Render Key Value (Redis) — free tier, подходит.
 - Пепельницы/стаканы на столе: z-index: 3 (под сообщениями)
 - Кнопка 🌐 .translate-btn: inline, opacity 0.45, .active → opacity 1, цвет #ffb74d
 - Перевод .translated-text: серый курсив, пунктирная линия сверху, .hidden → display: none
+
+### REPLY и приглашения (v1.19.0 / v1.20.0)
+- .message: position: relative — якорь для .msg-actions
+- .msg-actions: на десктопе top: -8px, right: -34px (снаружи пузыря);
+  на мобилке (≤768px) top: 2px, right: 4px (внутри), opacity: 0.75
+- .message.incoming .msg-body .username: padding-right: 64px на мобилке
+  (чтобы кнопки ↩️ и 🎯 не перекрывали ник)
+- .msg-reply-quote: border-left 3px #ffb74d, клик → скролл к [data-message-id]
+  + подсветка .highlight-msg (1.2 сек)
+- .reply-target-bar: плашка над input, .hidden → display: none !important
+- .private-invite-bar: плашка над input (после reply-плашки),
+  .hidden → display: none !important, автоскрытие через 30 сек
+- ВАЖНО: privateMessagesBox в HTML имеет inline style="display: none;" —
+  при переключении в приват ставим style.display = 'flex' + classList.remove('hidden')
 
 ===== КОНЕЦ ОТЧЁТА =====
