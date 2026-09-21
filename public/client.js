@@ -319,51 +319,54 @@ if (isAdmin) {
 
 // КЛИК: Переключение на ОБЩУЮ ФЛУДИЛКУ (БЕЗ БЛОКИРОВОК!)
     btnGeneral.addEventListener('click', () => {
-    // Меняем режим на общий
     currentMode = 'general';
-    
-    // Переключаем визуальный фокус на кнопках
-    btnPrivate.classList.remove('active');
-    btnGeneral.classList.add('active');
+    switchToGeneralModeUI();
     chatTitle.textContent = "📢 Общая флудилка (Скуф-Курилка)";
-    
-    // Показываем коробку флудилки, скрываем приват
-    generalMessagesBox.classList.remove('hidden');
-    privateMessagesBox.classList.add('hidden');
-
-    // Переключаем тему: курилка (на .chat-area и .messages-wrapper)
-    chatArea.classList.add('theme-general');
-    chatArea.classList.remove('theme-private');
-    messagesWrapper.classList.add('theme-general');
-    messagesWrapper.classList.remove('theme-private');
-    
-    // Даем команду серверу вернуть нас в общую комнату
-    hidePrivateControls();
     socket.emit('leave_private');
 });
 
-// КЛИК: Переключение на ПОИСК СКУФА
-    btnPrivate.addEventListener('click', () => {
-    if (currentMode !== 'general') return;
-    
-    currentMode = 'searching';
+// Переключает UI на приватный режим (вкладки, тему, кнопки).
+// Не трогает currentMode и не эмитит ничего на сервер — только визуал.
+function switchToPrivateModeUI() {
     btnGeneral.classList.remove('active');
     btnPrivate.classList.add('active');
-    chatTitle.textContent = "🔍 Ищем свободного мужика для беседы...";
-    
+
     generalMessagesBox.classList.add('hidden');
     privateMessagesBox.classList.remove('hidden');
     privateMessagesBox.style.display = 'flex';
 
-    // Переключаем тему: ламповый угол (на .chat-area и .messages-wrapper)
     chatArea.classList.add('theme-private');
     chatArea.classList.remove('theme-general');
     messagesWrapper.classList.add('theme-private');
     messagesWrapper.classList.remove('theme-general');
-    
-    privateMessagesBox.innerHTML = '<div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>';
 
     showPrivateControls();
+}
+
+// Переключает UI обратно на общую флудилку.
+function switchToGeneralModeUI() {
+    btnPrivate.classList.remove('active');
+    btnGeneral.classList.add('active');
+
+    generalMessagesBox.classList.remove('hidden');
+    privateMessagesBox.classList.add('hidden');
+
+    chatArea.classList.add('theme-general');
+    chatArea.classList.remove('theme-private');
+    messagesWrapper.classList.add('theme-general');
+    messagesWrapper.classList.remove('theme-private');
+
+    hidePrivateControls();
+}
+
+// КЛИК: Переключение на ПОИСК СКУФА
+btnPrivate.addEventListener('click', () => {
+    if (currentMode !== 'general') return;
+    
+    currentMode = 'searching';
+    switchToPrivateModeUI();
+    chatTitle.textContent = "🔍 Ищем свободного мужика для беседы...";
+    privateMessagesBox.innerHTML = '<div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>';
     socket.emit('search_private');
 });
 
@@ -677,6 +680,7 @@ socket.on('receive_msg', (data) => {
 const actionsHtml = (!isMe && !data.isPrivate && data.messageId)
     ? `<div class="msg-actions">
            <button class="msg-action-btn msg-reply-btn" type="button" title="Ответить">↩️</button>
+           ${data.senderSessionKey ? `<button class="msg-action-btn msg-invite-btn" type="button" title="Позвать в приват">🎯</button>` : ''}
        </div>`
     : '';
 
@@ -706,6 +710,15 @@ msgDiv.innerHTML = replyHtml + bodyHtml;
             );
         });
     }
+
+    // --- ОБРАБОТЧИК КЛИКА ПО КНОПКЕ "ПОЗВАТЬ В ПРИВАТ" ---
+const inviteBtn = msgDiv.querySelector('.msg-invite-btn');
+if (inviteBtn && data.senderSessionKey) {
+    inviteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        socket.emit('invite_private', { targetSessionKey: data.senderSessionKey });
+    });
+}
 
     // --- ОБРАБОТЧИК КЛИКА ПО ЦИТАТЕ (скролл к оригиналу) ---
     const quoteEl = msgDiv.querySelector('.msg-reply-quote');
@@ -744,10 +757,14 @@ msgDiv.innerHTML = replyHtml + bodyHtml;
 });
 
 socket.on('private_found', (data) => {
+    // Если мы уже в привате — оставляем. Иначе переключаем UI.
+    if (currentMode !== 'private') {
+        switchToPrivateModeUI();
+    }
     currentMode = 'private';
     chatTitle.textContent = `🎯 Разговор по душам с: ${data.opponent}`;
     privateMessagesBox.innerHTML = '<div class="system-msg">Собеседник найден! Можно перетирать за жизнь.</div>';
-    showPrivateControls(); // панель остаётся видимой и в активном приватном чате
+    showPrivateControls();
 });
 
 socket.on('waiting', () => {
@@ -826,6 +843,100 @@ socket.on('nick_error', (data) => {
     };
     showSystemMsg(reasons[data.reason] || '🚫 Ник не подошёл.');
 });
+
+// ============================================================
+// ПРИГЛАШЕНИЕ В ПРИВАТ (v1.20.0)
+// ============================================================
+
+// --- ВХОДЯЩЕЕ ПРИГЛАШЕНИЕ ---
+socket.on('private_invite', ({ fromUsername }) => {
+    showPrivateInviteBar(fromUsername);
+});
+
+// --- ПРИГЛАШЕНИЕ ОТПРАВЛЕНО (подтверждение отправителю) ---
+socket.on('invite_sent', ({ toUsername }) => {
+    showSystemMsg(`🎯 Приглашение отправлено скуфу: ${toUsername}`);
+});
+
+// --- ТЕБЕ ОТКАЗАЛИ ---
+socket.on('private_invite_declined', ({ byUsername }) => {
+    showSystemMsg(`🚫 ${byUsername} отказался от разговора.`);
+});
+
+// --- ОШИБКА ПРИГЛАШЕНИЯ ---
+socket.on('invite_error', ({ reason }) => {
+    const reasons = {
+        offline: '🚫 Скуф уже ушёл. Попробуй позже.',
+        busy: '🚫 Скуф занят — уже в привате с кем-то.',
+        too_often: '🍺 Э, не части! Подожди немного.',
+        self: '🍺 Себе приглашение не отправишь, скуф.',
+        bad_request: '🚫 Что-то не так с приглашением.'
+    };
+    showSystemMsg(reasons[reason] || '🚫 Приглашение не ушло.');
+});
+
+// --- ПРИНЯТИЕ ПРИГЛАШЕНИЯ (после согласия собеседника) ---
+// Когда оба согласны — сервер шлёт private_found обоим.
+// Этот обработчик уже есть выше (в логике рулетки) — ничего дополнительно не надо.
+
+// --- UI: плашка приглашения внизу ---
+function showPrivateInviteBar(fromUsername) {
+    // Если плашка уже открыта — сначала убираем старую
+    hidePrivateInviteBar();
+
+    const bar = document.getElementById('privateInviteBar');
+    const text = document.getElementById('privateInviteText');
+    if (!bar || !text) return;
+
+    text.textContent = `${fromUsername} зовёт перетереть в привате`;
+
+    // Кнопки
+    const acceptBtn = document.getElementById('inviteAcceptBtn');
+    const declineBtn = document.getElementById('inviteDeclineBtn');
+
+    // Обработчики (сначала снимаем старые, потом вешаем новые — на случай повторных приглашений)
+    const onAccept = () => {
+        socket.emit('private_invite_response', { accepted: true });
+        hidePrivateInviteBar();
+    };
+    const onDecline = () => {
+        socket.emit('private_invite_response', { accepted: false });
+        hidePrivateInviteBar();
+    };
+
+    // Заменяем кнопки-клоны, чтобы не накапливались обработчики
+    if (acceptBtn) {
+        const fresh = acceptBtn.cloneNode(true);
+        acceptBtn.replaceWith(fresh);
+        fresh.addEventListener('click', onAccept);
+    }
+    if (declineBtn) {
+        const fresh = declineBtn.cloneNode(true);
+        declineBtn.replaceWith(fresh);
+        fresh.addEventListener('click', onDecline);
+    }
+
+    bar.classList.remove('hidden');
+
+    // Автоскрытие через 30 секунд (если юзер не ответил)
+    if (window.__inviteTimeoutId) clearTimeout(window.__inviteTimeoutId);
+    window.__inviteTimeoutId = setTimeout(() => {
+        if (!bar.classList.contains('hidden')) {
+            // Автоматически отклоняем
+            socket.emit('private_invite_response', { accepted: false });
+            hidePrivateInviteBar();
+        }
+    }, 30000);
+}
+
+function hidePrivateInviteBar() {
+    const bar = document.getElementById('privateInviteBar');
+    if (bar) bar.classList.add('hidden');
+    if (window.__inviteTimeoutId) {
+        clearTimeout(window.__inviteTimeoutId);
+        window.__inviteTimeoutId = null;
+    }
+}
 
 // Собеседник отключился — ТЕПЕРЬ ВСЁ СРАБОТАЕТ ЧЁТКО!
 socket.on('partner_disconnected', () => {

@@ -163,6 +163,34 @@ function isRepeated(socket, text) {
 
 let waitingSkuf = null;
 
+// --- ХРАНИЛИЩЕ СЕССИЙ: sessionKey → socket ---
+// Нужно для приглашений в приват из общей флудилки: чтобы найти сокет по sessionKey.
+// Заполняется в init_session, чистится в disconnect.
+const sessionsByKey = new Map();
+
+// --- АНТИСПАМ ПРИГЛАШЕНИЙ ---
+// Не чаще 1 приглашения от одного юзера в 10 секунд.
+const INVITE_COOLDOWN_MS = 10 * 1000;
+// Карта: socket.id → timestamp последнего приглашения
+const inviteCooldowns = new Map();
+
+// Находит активный socket по sessionKey.
+// Возвращает socket или null, если юзер не в сети.
+function findSocketBySessionKey(sessionKey) {
+    if (!sessionKey) return null;
+    return sessionsByKey.get(sessionKey) || null;
+}
+
+// Проверяет и обновляет cooldown приглашений.
+// Возвращает true, если сейчас можно отправить приглашение, false — если рано.
+function checkInviteCooldown(socket) {
+    const now = Date.now();
+    const last = inviteCooldowns.get(socket.id) || 0;
+    if (now - last < INVITE_COOLDOWN_MS) return false;
+    inviteCooldowns.set(socket.id, now);
+    return true;
+}
+
 // --- БОТ-СКУФ: системный персонаж, который отвечает на команды и приветствует ---
 // Это не отдельный клиент, а серверная функция, которая шлёт сообщения
 // от имени бота в общий чат или лично пользователю.
@@ -686,6 +714,9 @@ socket.on('init_session', async ({ sessionKey }) => {
     if (!sessionKey) return;
     socket.sessionKey = sessionKey;
 
+        // Регистрируем сокет в хранилище сессий (для приглашений в приват)
+    sessionsByKey.set(sessionKey, socket);
+
     // Считаем уникального скуфа за сегодня
     await recordUniqueUser(sessionKey);
 
@@ -813,6 +844,115 @@ socket.on('send_global_msg', (payload) => {
             timestamp: messageData.timestamp,
             replyTo: messageData.replyTo
         });
+    });
+
+        // --- ПРИГЛАШЕНИЕ В ПРИВАТ ИЗ ОБЩЕЙ ФЛУДИЛКИ ---
+    // A шлёт { targetSessionKey }, сервер ищет сокет B и посылает ему private_invite.
+    socket.on('invite_private', ({ targetSessionKey } = {}) => {
+        // 1. Базовая валидация
+        if (!targetSessionKey || typeof targetSessionKey !== 'string') {
+            socket.emit('invite_error', { reason: 'bad_request' });
+            return;
+        }
+
+        // Нельзя пригласить самого себя
+        if (targetSessionKey === socket.sessionKey) {
+            socket.emit('invite_error', { reason: 'self' });
+            return;
+        }
+
+        // 2. Антиспам
+        if (!checkInviteCooldown(socket)) {
+            socket.emit('invite_error', { reason: 'too_often' });
+            return;
+        }
+
+        // 3. Ищем сокет получателя
+        const targetSocket = findSocketBySessionKey(targetSessionKey);
+        if (!targetSocket) {
+            socket.emit('invite_error', { reason: 'offline' });
+            return;
+        }
+
+        // 4. Получатель сейчас в привате?
+        if (targetSocket.privateRoom) {
+            socket.emit('invite_error', { reason: 'busy' });
+            return;
+        }
+
+        // 5. Получатель сам сейчас ищет собеседника (в очереди рулетки)?
+        if (waitingSkuf === targetSocket) {
+            // Не отказываем — просто вытаскиваем его из очереди и соединяем
+            waitingSkuf = null;
+        }
+
+        // 6. Запоминаем на сокете получателя, кто его приглашает
+        targetSocket.pendingInvite = {
+            fromSessionKey: socket.sessionKey,
+            fromSocketId: socket.id,
+            fromUsername: socket.username,
+            at: Date.now()
+        };
+
+        // 7. Шлём получателю приглашение
+        targetSocket.emit('private_invite', {
+            fromUsername: socket.username
+        });
+
+        // 8. Подтверждаем отправителю, что приглашение ушло
+        socket.emit('invite_sent', {
+            toUsername: targetSocket.username
+        });
+    });
+
+    // --- ОТВЕТ НА ПРИГЛАШЕНИЕ (принять / отклонить) ---
+    socket.on('private_invite_response', ({ accepted } = {}) => {
+        const invite = socket.pendingInvite;
+        socket.pendingInvite = null; // сбрасываем в любом случае
+
+        if (!invite) {
+            // Приглашения уже нет (истекло, отменено) — тихо игнорируем
+            return;
+        }
+
+        // Ищем отправителя по sessionKey
+        const fromSocket = findSocketBySessionKey(invite.fromSessionKey);
+
+        if (!accepted) {
+            // Отказ — если отправитель ещё в сети, сообщаем
+            if (fromSocket) {
+                fromSocket.emit('private_invite_declined', {
+                    byUsername: socket.username
+                });
+            }
+            return;
+        }
+
+        // Согласие — но отправитель мог уже уйти / занять себя
+        if (!fromSocket) {
+            socket.emit('invite_error', { reason: 'offline' });
+            return;
+        }
+        if (fromSocket.privateRoom) {
+            socket.emit('invite_error', { reason: 'busy' });
+            return;
+        }
+
+        // Создаём приватную комнату — та же логика, что в search_private
+        const roomId = `room_${fromSocket.id}_${socket.id}`;
+
+        fromSocket.join(roomId);
+        socket.join(roomId);
+
+        fromSocket.privateRoom = roomId;
+        socket.privateRoom = roomId;
+
+        // Оба покидают general
+        fromSocket.leave('general');
+        socket.leave('general');
+
+        fromSocket.emit('private_found', { opponent: socket.username });
+        socket.emit('private_found', { opponent: fromSocket.username });
     });
 
     // 2. Логика поиска 1 на 1
@@ -943,15 +1083,22 @@ socket.on('send_global_msg', (payload) => {
         }
     });
 
-        socket.on('disconnect', () => {
-        if (waitingSkuf === socket) waitingSkuf = null;
-        if (socket.privateRoom) {
-            socket.to(socket.privateRoom).emit('partner_disconnected');
-        }
-        // Счётчик онлайн: -1
-        onlineCount--;
-        broadcastOnlineCount();
-    });
+socket.on('disconnect', () => {
+    if (waitingSkuf === socket) waitingSkuf = null;
+
+    // Чистим хранилище сессий (только если эта сессия всё ещё указывает на этот сокет)
+    if (socket.sessionKey && sessionsByKey.get(socket.sessionKey) === socket) {
+        sessionsByKey.delete(socket.sessionKey);
+    }
+    inviteCooldowns.delete(socket.id);
+
+    if (socket.privateRoom) {
+        socket.to(socket.privateRoom).emit('partner_disconnected');
+    }
+    // Счётчик онлайн: -1
+    onlineCount--;
+    broadcastOnlineCount();
+});
 });
 
 const PORT = process.env.PORT || 3000;

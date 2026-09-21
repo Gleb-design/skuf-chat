@@ -1824,6 +1824,100 @@ a,
 }
 
 /* ======================================================= */
+/* ПРИГЛАШЕНИЕ В ПРИВАТ (v1.20.0)                          */
+/* ======================================================= */
+
+.private-invite-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: rgba(89, 69, 130, 0.25);
+    border-left: 3px solid #a88cff;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ddd;
+    animation: inviteSlideIn 0.3s ease-out;
+}
+.private-invite-bar.hidden {
+    display: none !important;
+}
+
+.private-invite-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.private-invite-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #ccc;
+}
+
+.invite-accept-btn,
+.invite-decline-btn {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.invite-accept-btn {
+    background: #4a7a4a;
+    color: #fff;
+}
+.invite-accept-btn:hover {
+    background: #5a9a5a;
+    transform: scale(1.03);
+}
+.invite-accept-btn:active {
+    transform: scale(0.97);
+}
+
+.invite-decline-btn {
+    background: #5a2a2a;
+    color: #eee;
+}
+.invite-decline-btn:hover {
+    background: #7a3a3a;
+    transform: scale(1.03);
+}
+.invite-decline-btn:active {
+    transform: scale(0.97);
+}
+
+@keyframes inviteSlideIn {
+    0%   { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* На мобилке — компактнее и вертикальнее */
+@media (max-width: 480px) {
+    .private-invite-bar {
+        flex-wrap: wrap;
+        font-size: 12px;
+        gap: 6px;
+    }
+    .private-invite-text {
+        flex-basis: 100%;
+        white-space: normal;
+    }
+    .invite-accept-btn,
+    .invite-decline-btn {
+        flex: 1;
+        padding: 8px;
+    }
+}
+
+/* ======================================================= */
 /* REPLY: цитата, кнопки, плашка, подсветка (v1.19.0)       */
 /* ======================================================= */
 
@@ -1878,13 +1972,13 @@ a,
 @media (max-width: 768px) {
     .msg-actions {
         top: 2px;
-        right: 2px;
+        right: 4px;
         opacity: 0.75;
         pointer-events: auto;
+        gap: 2px;
     }
-    /* Сдвигаем ник влево, чтобы кнопка его не перекрывала */
     .message.incoming .msg-body .username {
-        padding-right: 28px;
+        padding-right: 64px;
     }
 }
 .message:hover .msg-actions {
