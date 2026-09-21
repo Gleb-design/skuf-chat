@@ -95,6 +95,15 @@ const SKUF_EMOJIS = [
 const myUsernameDisplay = document.getElementById('myUsername');
 const btnDonate = document.getElementById('btnDonate');
 
+// --- REPLY (ответ на сообщение) ---
+// Текущий ответ: null или { messageId, username, preview }
+let currentReply = null;
+
+// Элементы плашки «Ответ на: …»
+const replyTargetBar = document.getElementById('replyTargetBar');
+const replyTargetText = document.getElementById('replyTargetText');
+const replyTargetCancel = document.getElementById('replyTargetCancel');
+
 const generalMessagesBox = document.getElementById('generalMessagesBox');
 const privateMessagesBox = document.getElementById('privateMessagesBox');
 const chatArea = document.querySelector('.chat-area');
@@ -396,11 +405,22 @@ function sendMessage() {
     }
 
     if (currentMode === 'general') {
-        socket.emit('send_global_msg', text);
+        // Отправляем объект с text и replyTo (если сейчас отвечаем)
+        socket.emit('send_global_msg', {
+            text: text,
+            replyTo: currentReply ? {
+                messageId: currentReply.messageId,
+                username: currentReply.username,
+                preview: currentReply.preview
+            } : null
+        });
     } else if (currentMode === 'private') {
+        // Приват пока без reply — просто текст
         socket.emit('send_private_msg', text);
     }
     messageInput.value = '';
+    // После отправки сбрасываем плашку ответа
+    clearReplyTarget();
 }
 
 // --- ВСТАВКА ЭМОДЗИ В ПОЛЕ ВВОДА ---
@@ -438,6 +458,39 @@ sendBtn.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
+
+// --- REPLY: управление плашкой «Ответ на: …» ---
+// Устанавливает текущий ответ и показывает плашку над полем ввода.
+function setReplyTarget(messageId, username, preview) {
+    currentReply = {
+        messageId,
+        username,
+        preview: String(preview || '').slice(0, 80)
+    };
+
+    if (replyTargetText) {
+        replyTargetText.textContent = `${username}: ${currentReply.preview}`;
+    }
+    if (replyTargetBar) {
+        replyTargetBar.classList.remove('hidden');
+    }
+    // Фокус в поле ввода — юзер сразу печатает
+    if (messageInput) messageInput.focus();
+}
+
+// Сбрасывает текущий ответ и скрывает плашку.
+function clearReplyTarget() {
+    currentReply = null;
+    if (replyTargetBar) replyTargetBar.classList.add('hidden');
+    if (replyTargetText) replyTargetText.textContent = '';
+}
+
+// Кнопка ✕ на плашке — отменяет ответ
+if (replyTargetCancel) {
+    replyTargetCancel.addEventListener('click', () => {
+        clearReplyTarget();
+    });
+}
 
 // --- ОТПРАВКА "СКУФ ПЕЧАТАЕТ..." ПРИ ВВОДЕ ---
 let lastTypingSent = 0;
@@ -592,28 +645,95 @@ socket.on('receive_msg', (data) => {
 
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('message');
-    
+
+    // Присваиваем ID — по нему будем скроллить при клике на цитату
+    if (data.messageId) {
+        msgDiv.dataset.messageId = data.messageId;
+    }
+
     const isMe = data.senderId === myId;
-    
+
     if (isMe) {
         msgDiv.classList.add('outgoing');
-        msgDiv.innerHTML = `<div class="msg-body"><p>${data.text}</p></div>`;
-        
+    } else {
+        msgDiv.classList.add('incoming');
+    }
+
+    // --- ЦИТАТА (если это ответ) ---
+    let replyHtml = '';
+    if (data.replyTo && data.replyTo.messageId) {
+        const quotePreview = String(data.replyTo.preview || '').slice(0, 80);
+        const quoteUsername = data.replyTo.username || 'Кто-то';
+        replyHtml = `
+            <div class="msg-reply-quote" data-target-id="${data.replyTo.messageId}">
+                <span class="reply-quote-username">↩️ ${quoteUsername}</span>
+                <span class="reply-quote-text">${quotePreview}</span>
+            </div>
+        `;
+    }
+
+    // --- ТЕЛО СООБЩЕНИЯ ---
+    let bodyHtml = '';
+const actionsHtml = (!isMe && !data.isPrivate && data.messageId)
+    ? `<div class="msg-actions">
+           <button class="msg-action-btn msg-reply-btn" type="button" title="Ответить">↩️</button>
+       </div>`
+    : '';
+
+if (isMe) {
+    bodyHtml = `<div class="msg-body">${actionsHtml}<p>${data.text}</p></div>`;
+} else {
+    bodyHtml = `
+        <div class="msg-body">
+            ${actionsHtml}
+            <span class="username">${data.username}</span>
+            <p>${data.text}</p>
+        </div>
+    `;
+}
+
+msgDiv.innerHTML = replyHtml + bodyHtml;
+
+    // --- ОБРАБОТЧИК КЛИКА ПО КНОПКЕ REPLY ---
+    const replyBtn = msgDiv.querySelector('.msg-reply-btn');
+    if (replyBtn) {
+        replyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setReplyTarget(
+                data.messageId,
+                data.username,
+                data.text
+            );
+        });
+    }
+
+    // --- ОБРАБОТЧИК КЛИКА ПО ЦИТАТЕ (скролл к оригиналу) ---
+    const quoteEl = msgDiv.querySelector('.msg-reply-quote');
+    if (quoteEl) {
+        quoteEl.addEventListener('click', () => {
+            const targetId = quoteEl.dataset.targetId;
+            if (!targetId) return;
+            const targetMsg = document.querySelector(`[data-message-id="${targetId}"]`);
+            if (!targetMsg) return; // оригинала нет в DOM — тихо выходим
+
+            targetMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetMsg.classList.add('highlight-msg');
+            setTimeout(() => {
+                targetMsg.classList.remove('highlight-msg');
+            }, 1200);
+        });
+    }
+
+    // --- ЗВУКИ ---
+    if (isMe) {
         soundOutgoing.currentTime = 0;
         soundOutgoing.play().catch(err => console.log(err));
     } else {
-        msgDiv.classList.add('incoming');
-        msgDiv.innerHTML = `
-            <div class="msg-body">
-                <span class="username">${data.username}</span>
-                <p>${data.text}</p>
-            </div>
-        `;
-        
         soundIncoming.currentTime = 0;
         soundIncoming.play().catch(err => console.log(err));
     }
-    
+
+    // --- ВСТАВКА В НУЖНОЕ ОКНО ---
     if (data.isPrivate) {
         privateMessagesBox.appendChild(msgDiv);
         privateMessagesBox.scrollTop = privateMessagesBox.scrollHeight;

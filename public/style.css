@@ -1286,6 +1286,7 @@ body {
   display: flex;
   width: 100%;
   margin-bottom: 5px;
+  position: relative; /* якорь для кнопок действий */
 }
 
 .system-msg {
@@ -1314,6 +1315,7 @@ body {
   overflow-wrap: anywhere;   /* ← переносим длинные слова */
   word-break: break-word;    /* ← подстраховка для старых браузеров */
   min-width: 0;              /* ← чтобы max-width реально работал во flex */
+  position: relative;
 }
 
 /* ВАШЕ сообщение (вправо) */
@@ -1329,6 +1331,7 @@ body {
   overflow-wrap: anywhere;
   word-break: break-word;
   min-width: 0;
+  position: relative;
 }
 
 .username {
@@ -1818,4 +1821,146 @@ a,
 .emoji-btn,
 .emoji-item {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* ======================================================= */
+/* REPLY: цитата, кнопки, плашка, подсветка (v1.19.0)       */
+/* ======================================================= */
+
+/* --- Цитата внутри сообщения --- */
+.msg-reply-quote {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+    border-left: 3px solid #ffb74d;
+    background: rgba(255, 183, 77, 0.08);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: background 0.15s;
+    max-width: 100%;
+    overflow: hidden;
+}
+.msg-reply-quote:hover {
+    background: rgba(255, 183, 77, 0.15);
+}
+.reply-quote-username {
+    color: #ffb74d;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.reply-quote-text {
+    color: #aaa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- Кнопки действий на сообщении --- */
+.msg-actions {
+    position: absolute;
+    top: -8px;
+    right: -34px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Мобилка: кнопка внутри пузыря, в правом верхнем углу */
+@media (max-width: 768px) {
+    .msg-actions {
+        top: 2px;
+        right: 2px;
+        opacity: 0.75;
+        pointer-events: auto;
+    }
+    /* Сдвигаем ник влево, чтобы кнопка его не перекрывала */
+    .message.incoming .msg-body .username {
+        padding-right: 28px;
+    }
+}
+.message:hover .msg-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+.msg-action-btn {
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    padding: 4px 7px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, transform 0.1s;
+}
+.msg-action-btn:hover {
+    background: rgba(255, 183, 77, 0.6);
+    transform: scale(1.08);
+}
+.msg-action-btn:active {
+    transform: scale(0.95);
+}
+
+/* --- Плашка «Ответ на: …» над полем ввода --- */
+.reply-target-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin-bottom: 6px;
+    background: rgba(255, 183, 77, 0.12);
+    border-left: 3px solid #ffb74d;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ddd;
+}
+.reply-target-bar.hidden {
+    display: none !important;
+}
+.reply-target-label {
+    color: #ffb74d;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.reply-target-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #bbb;
+}
+.reply-target-cancel {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.reply-target-cancel:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* --- Подсветка сообщения при клике на цитату --- */
+.message.highlight-msg {
+    animation: highlightFlash 1.2s ease-out;
+}
+@keyframes highlightFlash {
+    0%   { background-color: rgba(255, 183, 77, 0.35); }
+    100% { background-color: transparent; }
 }

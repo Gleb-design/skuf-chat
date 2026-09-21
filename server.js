@@ -115,6 +115,17 @@ function containsAds(text) {
     return BAN_PATTERNS.some((re) => re.test(text));
 }
 
+function containsAds(text) {
+    return BAN_PATTERNS.some((re) => re.test(text));
+}
+
+// Генерирует уникальный ID для сообщения.
+// Формат: msg_<timestamp>_<случайные 6 символов>
+// Пример: msg_1758451234567_a3f9k2
+function generateMessageId() {
+    return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // --- ВАЛИДАЦИЯ КАСТОМНОГО НИКА ---
 const NICK_MIN_LEN = 2;
 const NICK_MAX_LEN = 20;
@@ -704,12 +715,16 @@ socket.on('init_session', async ({ sessionKey }) => {
         try {
             await cleanOldMessages();
             const history = await getHistory();
-            history.forEach((msg) => {
+                        history.forEach((msg) => {
                 socket.emit('receive_msg', {
+                    messageId: msg.messageId || null,
                     senderId: msg.senderId,
+                    senderSessionKey: msg.senderSessionKey || null,
                     username: msg.username,
                     text: msg.text,
-                    isPrivate: false
+                    isPrivate: false,
+                    timestamp: msg.timestamp || null,
+                    replyTo: msg.replyTo || null
                 });
             });
         } catch (err) {
@@ -719,9 +734,19 @@ socket.on('init_session', async ({ sessionKey }) => {
 
 
     // 1. Логика общей флудилки (Обновлено!)
-        socket.on('send_global_msg', (text) => {
-        // --- КОМАНДЫ БОТА (перехватываем до rate limit) ---
-        const trimmed = (text || '').trim();
+socket.on('send_global_msg', (payload) => {
+    // Поддерживаем два формата:
+    //   1) строка (старый клиент или команды вроде /help)
+    //   2) объект { text, replyTo } (новый клиент)
+    const text = (typeof payload === 'string')
+        ? payload
+        : (payload && typeof payload === 'object' ? String(payload.text || '') : '');
+    const replyTo = (payload && typeof payload === 'object' && payload.replyTo)
+        ? payload.replyTo
+        : null;
+
+    // --- КОМАНДЫ БОТА (перехватываем до rate limit) ---
+    const trimmed = (text || '').trim();
 
         if (trimmed === '/help') {
     botSayToUser(socket,
@@ -758,11 +783,18 @@ socket.on('init_session', async ({ sessionKey }) => {
         }
 
         const messageData = {
+            messageId: generateMessageId(),
             senderId: socket.id,
+            senderSessionKey: socket.sessionKey || null,
             username: socket.username,
             text: text,
             isPrivate: false,
-            timestamp: Date.now() // Запоминаем точное время отправки
+            timestamp: Date.now(),
+            replyTo: replyTo ? {
+                messageId: replyTo.messageId,
+                username: replyTo.username,
+                preview: String(replyTo.preview || '').slice(0, 120)
+            } : null
         };
 
         // Сохраняем сообщение в историю (Redis или RAM — решает saveMessage)
@@ -772,10 +804,14 @@ socket.on('init_session', async ({ sessionKey }) => {
 
         // Отправляем его всем в общую флудилку
         io.to('general').emit('receive_msg', {
+            messageId: messageData.messageId,
             senderId: messageData.senderId,
+            senderSessionKey: messageData.senderSessionKey,
             username: messageData.username,
             text: messageData.text,
-            isPrivate: messageData.isPrivate
+            isPrivate: messageData.isPrivate,
+            timestamp: messageData.timestamp,
+            replyTo: messageData.replyTo
         });
     });
 
