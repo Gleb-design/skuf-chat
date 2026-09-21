@@ -114,6 +114,18 @@
   </main>
 </div>
 
+<!-- Popup действий с сообщением (только на мобилке, ≤768px) -->
+  <div id="msgActionPopup" class="msg-action-popup hidden">
+    <button class="msg-action-item" id="popupReplyBtn" type="button">
+      <span class="msg-action-icon">↩️</span>
+      <span class="msg-action-label">Ответить</span>
+    </button>
+    <button class="msg-action-item" id="popupInviteBtn" type="button">
+      <span class="msg-action-icon">🎯</span>
+      <span class="msg-action-label">Позвать в приват</span>
+    </button>
+  </div>
+
   <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>

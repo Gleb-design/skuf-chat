@@ -1903,8 +1903,9 @@ a,
 @media (max-width: 480px) {
     .private-invite-bar {
         flex-wrap: wrap;
-        font-size: 12px;
+        font-size: 13px;
         gap: 6px;
+        padding: 10px 12px;
     }
     .private-invite-text {
         flex-basis: 100%;
@@ -1913,7 +1914,9 @@ a,
     .invite-accept-btn,
     .invite-decline-btn {
         flex: 1;
-        padding: 8px;
+        padding: 14px 12px;   /* ← палец легко попадает */
+        font-size: 14px;
+        min-height: 44px;     /* ← Apple рекомендует 44px минимум для тач-целей */
     }
 }
 
@@ -2057,4 +2060,84 @@ a,
 @keyframes highlightFlash {
     0%   { background-color: rgba(255, 183, 77, 0.35); }
     100% { background-color: transparent; }
+}
+
+
+/* ======================================================= */
+/* POPUP ДЕЙСТВИЙ С СООБЩЕНИЕМ (только мобилка, v1.21.0)     */
+/* ======================================================= */
+
+.msg-action-popup {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 200px;
+    background: #2a2a32;
+    border: 1px solid #3a3a46;
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    z-index: 1000;
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+    pointer-events: none;
+}
+
+.msg-action-popup.open {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+.msg-action-popup.hidden {
+    display: none !important;
+}
+
+.msg-action-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-size: 15px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.msg-action-item:hover,
+.msg-action-item:active {
+    background: rgba(255, 183, 77, 0.15);
+}
+
+.msg-action-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+
+.msg-action-label {
+    flex: 1;
+    font-weight: 500;
+}
+
+/* --- Мобилка: убираем старые hover-кнопки --- */
+@media (max-width: 768px) {
+    /* Прячем старые .msg-actions — на мобилке они не нужны */
+    .msg-actions {
+        display: none !important;
+    }
+
+    /* Убираем padding-right у ника — он был под кнопки */
+    .message.incoming .msg-body .username {
+        padding-right: 0 !important;
+    }
 }

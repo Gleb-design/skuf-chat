@@ -638,6 +638,159 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// ============================================================
+// POPUP ДЕЙСТВИЙ С СООБЩЕНИЕМ (только мобилка, v1.21.0)
+// ============================================================
+
+const msgActionPopup = document.getElementById('msgActionPopup');
+const popupReplyBtn = document.getElementById('popupReplyBtn');
+const popupInviteBtn = document.getElementById('popupInviteBtn');
+
+// Данные текущего выбранного сообщения
+let popupTargetData = null;
+
+// Открыть popup рядом с сообщением
+function openMsgActionPopup(anchorEl, data) {
+    if (!msgActionPopup || !anchorEl) return;
+
+    // Если мы на десктопе (>768px) — popup не открываем (там hover-кнопки)
+    if (window.innerWidth > 768) return;
+
+    popupTargetData = data;
+
+    // Показываем popup, чтобы измерить его размеры
+    msgActionPopup.classList.remove('hidden');
+
+    // Скрываем кнопку «Позвать в приват», если у сообщения нет senderSessionKey
+    if (popupInviteBtn) {
+        if (data.senderSessionKey) {
+            popupInviteBtn.style.display = '';
+        } else {
+            popupInviteBtn.style.display = 'none';
+        }
+    }
+
+    // Считаем позицию
+    const rect = anchorEl.getBoundingClientRect();
+    const popupRect = msgActionPopup.getBoundingClientRect();
+    const margin = 8;
+
+    let top = rect.bottom + margin;
+    // Если popup не влезает снизу — показываем сверху
+    if (top + popupRect.height > window.innerHeight - margin) {
+        top = rect.top - popupRect.height - margin;
+    }
+    // Не даём уехать выше верха экрана
+    if (top < margin) top = margin;
+
+    let left = rect.right - popupRect.width;
+    // Не даём уехать за левый край
+    if (left < margin) left = margin;
+    // Не даём уехать за правый край
+    if (left + popupRect.width > window.innerWidth - margin) {
+        left = window.innerWidth - popupRect.width - margin;
+    }
+
+    msgActionPopup.style.top = top + 'px';
+    msgActionPopup.style.left = left + 'px';
+
+    // Небольшая задержка для CSS-анимации (opacity/scale)
+    requestAnimationFrame(() => {
+        msgActionPopup.classList.add('open');
+    });
+}
+
+// Закрыть popup
+function closeMsgActionPopup() {
+    if (!msgActionPopup) return;
+    msgActionPopup.classList.remove('open');
+    // Ждём завершения анимации, потом скрываем
+    setTimeout(() => {
+        msgActionPopup.classList.add('hidden');
+    }, 150);
+    popupTargetData = null;
+}
+
+// Клик по кнопке «Ответить»
+if (popupReplyBtn) {
+    popupReplyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!popupTargetData) return;
+        setReplyTarget(
+            popupTargetData.messageId,
+            popupTargetData.username,
+            popupTargetData.text
+        );
+        closeMsgActionPopup();
+    });
+}
+
+// Клик по кнопке «Позвать в приват»
+if (popupInviteBtn) {
+    popupInviteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!popupTargetData || !popupTargetData.senderSessionKey) return;
+        socket.emit('invite_private', { targetSessionKey: popupTargetData.senderSessionKey });
+        closeMsgActionPopup();
+    });
+}
+
+// Закрытие: клик вне popup
+document.addEventListener('click', (e) => {
+    if (!msgActionPopup || msgActionPopup.classList.contains('hidden')) return;
+    if (msgActionPopup.contains(e.target)) return; // внутри popup — не закрываем
+    closeMsgActionPopup();
+});
+
+// Закрытие: скролл в чате
+[generalMessagesBox, privateMessagesBox].forEach((box) => {
+    if (box) {
+        box.addEventListener('scroll', () => {
+            if (msgActionPopup && !msgActionPopup.classList.contains('hidden')) {
+                closeMsgActionPopup();
+            }
+        }, { passive: true });
+    }
+});
+
+// Закрытие: Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && msgActionPopup && !msgActionPopup.classList.contains('hidden')) {
+        closeMsgActionPopup();
+    }
+});
+
+// Закрытие при ресайзе окна (чтобы popup не висел в неправильном месте)
+window.addEventListener('resize', () => {
+    if (msgActionPopup && !msgActionPopup.classList.contains('hidden')) {
+        closeMsgActionPopup();
+    }
+});
+
+// --- Обработчик тапа по пузырю (только мобилка) ---
+function attachMsgTapHandler(msgDiv, data) {
+    const bodyEl = msgDiv.querySelector('.msg-body');
+    if (!bodyEl) return;
+
+    bodyEl.addEventListener('click', (e) => {
+        // На десктопе — ничего (там hover-кнопки)
+        if (window.innerWidth > 768) return;
+
+        // Клик по цитате — не открываем popup (там скролл к оригиналу)
+        if (e.target.closest('.msg-reply-quote')) return;
+
+        // Клик по кнопкам действий (на всякий случай, если они всё-таки есть)
+        if (e.target.closest('.msg-actions')) return;
+
+        // Клик по ссылке внутри текста — не открываем popup
+        if (e.target.closest('a')) return;
+
+        // Открываем popup
+        openMsgActionPopup(bodyEl, data);
+        e.stopPropagation();
+    });
+}
+
 // ПРИЕМ СООБЩЕНИЙ
 socket.on('receive_msg', (data) => {
     // --- СИСТЕМНОЕ СООБЩЕНИЕ (смена ника и т.п.) ---
@@ -697,6 +850,16 @@ if (isMe) {
 }
 
 msgDiv.innerHTML = replyHtml + bodyHtml;
+
+// Подключаем тап по пузырю → popup (только мобилка, только чужие)
+if (!isMe && !data.isPrivate) {
+    attachMsgTapHandler(msgDiv, {
+        messageId: data.messageId,
+        username: data.username,
+        text: data.text,
+        senderSessionKey: data.senderSessionKey
+    });
+}
 
     // --- ОБРАБОТЧИК КЛИКА ПО КНОПКЕ REPLY ---
     const replyBtn = msgDiv.querySelector('.msg-reply-btn');
