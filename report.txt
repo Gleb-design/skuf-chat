@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.20.0
+Версия: v1.21.1
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.20.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.21.1 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.20.0
+- Стабильная версия: v1.21.1
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -71,7 +71,7 @@
 - beer.mp3 (чужое сообщение) — volume 0.1
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v7)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v8)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -96,7 +96,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v7' (актуально с v1.18.0)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v8' (актуально с v1.21.1)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -422,6 +422,36 @@ skuf-chat/
     public/index.html (плашка privateInviteBar), public/style.css
     (стили плашки и кнопок, мобильный медиа-запрос).
 
+- v1.21.0 — POPUP ДЕЙСТВИЙ НА МОБИЛКЕ (клик по сообщению)
+  • На мобилке (≤768px) старые hover-кнопки ↩️ и 🎯 убраны (.msg-actions
+    display: none в медиа-запросе). Вместо них — popup с двумя кнопками
+    «Ответить» и «Позвать в приват».
+  • HTML: <div id="msgActionPopup"> с двумя кнопками (popupReplyBtn,
+    popupInviteBtn). ВАЖНО: добавлен в index.html ВЫШЕ <script src="client.js">,
+    иначе client.js не находит его (getElementById → null).
+  • CSS: .msg-action-popup (position: fixed, z-index: 1000, opacity 0→1 +
+    scale при .open, .hidden → display: none). Кнопки .msg-action-item
+    с иконкой и текстом.
+  • JS: openMsgActionPopup(anchorEl, data) — считает координаты через
+    getBoundingClientRect, показывает popup рядом с сообщением (сверху или
+    снизу, чтобы влез в экран). closeMsgActionPopup() — скрывает.
+  • attachMsgTapHandler(msgDiv, data) — вешает click на .msg-body чужого
+    сообщения. Внутри проверки: только ≤768px, не клик по цитате, не клик
+    по .msg-actions, не клик по <a>.
+  • Закрытие: клик вне popup, скролл чата, Escape, resize окна.
+  • На десктопе (>768px) popup НЕ открывается, работают старые hover-кнопки.
+  • Фикс высоты кнопок приглашения в приват: на мобилке (≤480px)
+    padding: 14px 12px, font-size: 14px, min-height: 44px (Apple-стандарт
+    для тач-целей). Файл public/style.css.
+  • Файлы: public/client.js (openMsgActionPopup, closeMsgActionPopup,
+    attachMsgTapHandler, обработчики кнопок popup), public/index.html
+    (HTML popup ВЫШЕ скриптов), public/style.css (стили popup + медиа-запрос,
+    фикс кнопок приглашения).
+- v1.21.1 — обновление CACHE_NAME → skuf-chat-v8
+  • Без этого браузер пользователя мог держать старый client.js/style.css
+    из кэша и popup не работал бы на проде.
+  • Файл: public/sw.js.
+
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 
 ### МОНЕТИЗАЦИЯ (обсуждено, к реализации)
@@ -539,7 +569,8 @@ Render Key Value (Redis) — free tier, подходит.
   typing, next_skuf, reply-поля в send_global_msg, invite_private)
 - public/client.js — вся клиентская логика + addAllDecor() + переключение тем +
   reply (setReplyTarget/clearReplyTarget) + приглашения (showPrivateInviteBar) +
-  switchToPrivateModeUI/switchToGeneralModeUI
+  switchToPrivateModeUI/switchToGeneralModeUI + popup на мобилке
+  (openMsgActionPopup, closeMsgActionPopup, attachMsgTapHandler)
 - public/index.html — вёрстка + OG-теги + обёртка .messages-wrapper +
   плашки replyTargetBar и privateInviteBar
 - public/style.css — стили, темы (курилка/приват), декорации, keyframes,
@@ -574,5 +605,14 @@ Render Key Value (Redis) — free tier, подходит.
   .hidden → display: none !important, автоскрытие через 30 сек
 - ВАЖНО: privateMessagesBox в HTML имеет inline style="display: none;" —
   при переключении в приват ставим style.display = 'flex' + classList.remove('hidden')
+
+### POPUP на мобилке (v1.21.0)
+- .msg-action-popup: position: fixed, z-index: 1000, .hidden → display: none,
+  .open → opacity 1 + scale 1 + pointer-events auto
+- ВАЖНО: HTML popup должен быть ВЫШЕ <script src="client.js"> в index.html,
+  иначе getElementById вернёт null и popup не заработает
+- .msg-actions на мобилке (≤768px) скрыт: display: none !important
+- На десктопе .msg-actions работает как раньше (hover)
+- Кнопки приглашения в приват на мобилке (≤480px): min-height: 44px
 
 ===== КОНЕЦ ОТЧЁТА =====
