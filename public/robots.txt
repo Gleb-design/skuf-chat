@@ -4,10 +4,4 @@
 User-agent: *
 Allow: /
 
-# Запрещаем индексировать технические файлы
-Disallow: /sw.js
-Disallow: /client.js
-Disallow: /style.css
-
-# Sitemap
 Sitemap: https://skuf-chat.xyz/sitemap.xml
