@@ -7,6 +7,7 @@ const Redis = require('ioredis');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+const initGame = require('./game');
 
 app.use(express.static('public'));
 
@@ -1099,6 +1100,14 @@ socket.on('disconnect', () => {
     onlineCount--;
     broadcastOnlineCount();
 });
+});
+
+
+// --- ИНИЦИАЛИЗАЦИЯ МОРСКОГО БОЯ ---
+// Модуль сам подписывается на io.on('connection') и регистрирует свои события.
+initGame(io, {
+    sessionsByKey,
+    findSocketBySessionKey,
 });
 
 const PORT = process.env.PORT || 3000;
