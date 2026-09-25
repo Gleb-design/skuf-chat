@@ -29,6 +29,7 @@
   <meta name="twitter:description" content="Без регистрации, без имён — только скуфы, пиво и разговоры за жизнь.">
   <meta name="twitter:image" content="https://skuf-chat.xyz/og-image.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="game.css">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="apple-touch-icon" href="/icon.png">
@@ -61,10 +62,11 @@
     </header>
 
         <!-- Кнопки управления приватным чатом (появляются только в режиме рулетки) -->
-    <div class="private-controls hidden" id="privateControls">
-      <button id="btnNextSkuf">🔄 Следующий скуф</button>
-      <button id="btnCancelSearch">❌ Выйти во флудилку</button>
-    </div>
+      <div class="private-controls hidden" id="privateControls">
+        <button id="btnNextSkuf">🔄 Следующий скуф</button>
+        <button id="btnGame" title="Морской бой">🚢 Морской бой</button>
+        <button id="btnCancelSearch">❌ Выйти во флудилку</button>
+      </div>
 
 
     <!-- Окна с сообщениями -->
@@ -114,6 +116,37 @@
   </main>
 </div>
 
+<!-- Оверлей Морского боя (скрыт по умолчанию) -->
+<div id="gameOverlay" class="game-overlay hidden">
+  <div class="game-header">
+    <h3 id="gameTitle">🚢 Морской бой</h3>
+    <button id="gameExitBtn" title="Выйти">✖</button>
+  </div>
+
+  <div class="game-info">
+    <span id="gameOpponentName">Соперник: —</span>
+    <span id="gameTurnIndicator"></span>
+  </div>
+
+  <div class="game-boards">
+    <div class="game-board-wrapper">
+      <h4>Твоё поле</h4>
+      <div id="myBoard" class="game-board"></div>
+    </div>
+    <div class="game-board-wrapper">
+      <h4>Поле врага</h4>
+      <div id="enemyBoard" class="game-board"></div>
+    </div>
+  </div>
+
+  <div class="game-controls">
+    <button id="gameRandomBtn" class="hidden">🎲 Расставить случайно</button>
+    <button id="gameReadyBtn" class="hidden">✅ Готов</button>
+    <div id="gameStatusMsg"></div>
+  </div>
+</div>
+
+
 <!-- Popup действий с сообщением (только на мобилке, ≤768px) -->
   <div id="msgActionPopup" class="msg-action-popup hidden">
     <button class="msg-action-item" id="popupReplyBtn" type="button">
@@ -129,6 +162,7 @@
   <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
+  <script src="game.js"></script>
   <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')

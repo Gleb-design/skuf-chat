@@ -7,7 +7,7 @@ const Redis = require('ioredis');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const initGame = require('./game');
+const initGame = require('./game-server');
 
 app.use(express.static('public'));
 
