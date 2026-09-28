@@ -1601,10 +1601,27 @@ body {
   .private-controls {
     padding: 8px 12px;
     gap: 6px;
+    /* Разрешаем перенос на 2 строки */
+    flex-wrap: wrap;
   }
   .private-controls button {
     font-size: 13px;
     padding: 8px 10px;
+    /* Кнопки растягиваются на доступное место, но не меньше 30% */
+    flex: 1 1 30%;
+    /* Первая и вторая — в одну строку, третья — на всю */
+    min-width: 0;
+  }
+  /* Третья кнопка («Выйти во флудилку») — на всю ширину */
+  #btnCancelSearch {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .private-controls button {
+    font-size: 12px;
+    padding: 8px 6px;
   }
 }
 
