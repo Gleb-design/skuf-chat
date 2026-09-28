@@ -85,6 +85,73 @@ function renderMyBoard(boardEl, board) {
     }
 }
 
+// Отрисовывает результат выстрела на конкретной клетке
+// targetEl — boardEl (myBoardEl или enemyBoardEl)
+// x, y — координаты
+// result — 'miss' | 'hit' | 'sunk'
+function renderShotResult(boardEl, x, y, result) {
+    const cell = boardEl.querySelector(`.game-cell[data-x="${x}"][data-y="${y}"]`);
+    if (!cell) return;
+
+    // Убираем предыдущие классы результата
+    cell.classList.remove('ship', 'hit', 'miss', 'sunk');
+
+    if (result === 'miss') {
+        cell.classList.add('miss');
+    } else if (result === 'hit') {
+        cell.classList.add('hit');
+    } else if (result === 'sunk') {
+        cell.classList.add('sunk');  // для потопленного — особый стиль
+    }
+}
+
+// Отрисовывает поле врага (только попадания/промахи + обработчики кликов)
+function renderEnemyBoard(boardEl, board) {
+    boardEl.innerHTML = '';
+    for (let y = 0; y < BOARD_SIZE; y++) {
+        for (let x = 0; x < BOARD_SIZE; x++) {
+            const cell = document.createElement('div');
+            cell.className = 'game-cell';
+            cell.dataset.x = x;
+            cell.dataset.y = y;
+
+            const data = board[y] && board[y][x] ? board[y][x] : null;
+
+            if (data && data.hit) {
+                cell.classList.add('hit');
+            } else if (data && data.miss) {
+                cell.classList.add('miss');
+            }
+
+            // Клик по клетке — выстрел
+            cell.addEventListener('click', () => handleEnemyCellClick(x, y));
+
+            boardEl.appendChild(cell);
+        }
+    }
+}
+
+// Обработчик клика по клетке врага
+function handleEnemyCellClick(x, y) {
+    // Проверки
+    if (state.phase !== 'battle') return;
+    if (!state.gameId) return;
+    if (state.turn !== 'you') {
+        statusMsgEl.textContent = '⌛ Не твой ход. Ждём соперника.';
+        return;
+    }
+
+    // Проверяем, что клетка не обстреляна
+    const cell = enemyBoardEl.querySelector(`.game-cell[data-x="${x}"][data-y="${y}"]`);
+    if (cell && (cell.classList.contains('hit') || cell.classList.contains('miss'))) {
+        return; // уже стреляли
+    }
+
+    // Отправляем выстрел
+    socket.emit('game_shot', { gameId: state.gameId, x, y });
+    statusMsgEl.textContent = '💥 Стреляем...';
+}
+
     // ========================================================
     // ОТКРЫТИЕ / ЗАКРЫТИЕ ОВЕРЛЕЯ
     // ========================================================
@@ -314,7 +381,7 @@ function renderMyBoard(boardEl, board) {
         // Обновляем UI
         opponentNameEl.textContent = `Соперник: ${state.opponentName}`;
         renderMyBoard(myBoardEl, myBoard);
-        renderMyBoard(enemyBoardEl, enemyBoard);
+        renderEnemyBoard(enemyBoardEl, enemyBoard);  // ← новая функция с кликами
 
         // Показываем чей ход
         if (turn === 'you') {
@@ -323,6 +390,49 @@ function renderMyBoard(boardEl, board) {
         } else {
             turnIndicatorEl.textContent = '⌛ Ход соперника';
             statusMsgEl.textContent = 'Ждём хода соперника...';
+        }
+    });
+
+    // ========================================================
+    // ВЫСТРЕЛЫ
+    // ========================================================
+
+    // Наш выстрел — результат
+    socket.on('game_shot_result', ({ x, y, result, turn }) => {
+        // Рисуем на поле врага
+        renderShotResult(enemyBoardEl, x, y, result);
+
+        // Обновляем ход
+        if (turn) {
+            state.turn = turn;
+            if (turn === 'you') {
+                turnIndicatorEl.textContent = '🎯 Твой ход!';
+                if (result === 'hit' || result === 'sunk') {
+                    statusMsgEl.textContent = result === 'sunk' ? '☠️ Потопил! Стреляй ещё.' : '🔥 Попал! Стреляй ещё.';
+                } else {
+                    statusMsgEl.textContent = '💧 Мимо.';
+                }
+            } else {
+                turnIndicatorEl.textContent = '⌛ Ход соперника';
+                statusMsgEl.textContent = 'Ждём хода соперника...';
+            }
+        }
+    });
+
+    // Соперник стрелял — результат на нашем поле
+    socket.on('game_opponent_shot', ({ x, y, result, turn }) => {
+        // Рисуем на своём поле
+        renderShotResult(myBoardEl, x, y, result);
+
+        // Обновляем ход
+        if (turn) {
+            state.turn = turn;
+            if (turn === 'you') {
+                turnIndicatorEl.textContent = '🎯 Твой ход!';
+                statusMsgEl.textContent = 'Твой ход! Стреляй.';
+            } else {
+                turnIndicatorEl.textContent = '⌛ Ход соперника';
+            }
         }
     });
 
