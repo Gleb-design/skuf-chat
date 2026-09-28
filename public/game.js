@@ -60,6 +60,31 @@
         }
     }
 
+    // Отрисовывает поле с кораблями (пришло с сервера после расстановки)
+// board — 2D массив, где клетка либо null, либо { ship: true, hit: false }, либо { miss: true }
+function renderMyBoard(boardEl, board) {
+    boardEl.innerHTML = '';
+    for (let y = 0; y < BOARD_SIZE; y++) {
+        for (let x = 0; x < BOARD_SIZE; x++) {
+            const cell = document.createElement('div');
+            cell.className = 'game-cell';
+            cell.dataset.x = x;
+            cell.dataset.y = y;
+
+            const data = board[y] && board[y][x] ? board[y][x] : null;
+
+            if (data && data.ship) {
+                cell.classList.add('ship');
+                if (data.hit) cell.classList.add('hit');
+            } else if (data && data.miss) {
+                cell.classList.add('miss');
+            }
+
+            boardEl.appendChild(cell);
+        }
+    }
+}
+
     // ========================================================
     // ОТКРЫТИЕ / ЗАКРЫТИЕ ОВЕРЛЕЯ
     // ========================================================
@@ -227,6 +252,95 @@
         setTimeout(() => {
             closeOverlay();
         }, 2000);
+    });
+
+        // ========================================================
+    // РАССТАНОВКА И СТАРТ БОЯ
+    // ========================================================
+
+    // Кнопка «🎲 Расставить случайно»
+    if (randomBtn) {
+        randomBtn.addEventListener('click', () => {
+            if (!state.gameId) {
+                statusMsgEl.textContent = '⚠️ Игра не найдена.';
+                return;
+            }
+            socket.emit('game_place_ships', {
+                gameId: state.gameId,
+                random: true,
+            });
+            statusMsgEl.textContent = '🎲 Расставляем случайно...';
+        });
+    }
+
+    // Кнопка «✅ Готов»
+    if (readyBtn) {
+        readyBtn.addEventListener('click', () => {
+            if (!state.gameId) {
+                statusMsgEl.textContent = '⚠️ Игра не найдена.';
+                return;
+            }
+            // Пока — то же самое, что «Расставить случайно»
+            // TODO: в 1.2.2.3 отправлять реальный board
+            socket.emit('game_place_ships', {
+                gameId: state.gameId,
+                random: true,
+            });
+            statusMsgEl.textContent = '✅ Готов. Ждём соперника...';
+            readyBtn.classList.add('hidden');  // скрыть кнопку «Готов» после нажатия
+        });
+    }
+
+    // Сервер прислал подтверждение расстановки
+    socket.on('game_board_accepted', ({ gameId, board }) => {
+        state.myBoard = board;
+        renderMyBoard(myBoardEl, board);
+        statusMsgEl.textContent = 'Корабли расставлены. Жми «✅ Готов», когда готов.';
+    });
+
+    // Фаза боя началась (оба готовы)
+    socket.on('game_battle', ({ gameId, turn, myBoard, enemyBoard, opponentName }) => {
+        state.gameId = gameId;
+        state.phase = 'battle';
+        state.turn = turn;
+        state.myBoard = myBoard;
+        state.enemyBoard = enemyBoard;
+        state.opponentName = opponentName || 'Соперник';
+
+        // Скрываем кнопки расстановки
+        if (randomBtn) randomBtn.classList.add('hidden');
+        if (readyBtn) readyBtn.classList.add('hidden');
+
+        // Обновляем UI
+        opponentNameEl.textContent = `Соперник: ${state.opponentName}`;
+        renderMyBoard(myBoardEl, myBoard);
+        renderMyBoard(enemyBoardEl, enemyBoard);
+
+        // Показываем чей ход
+        if (turn === 'you') {
+            turnIndicatorEl.textContent = '🎯 Твой ход!';
+            statusMsgEl.textContent = 'Стреляй по полю врага.';
+        } else {
+            turnIndicatorEl.textContent = '⌛ Ход соперника';
+            statusMsgEl.textContent = 'Ждём хода соперника...';
+        }
+    });
+
+    // Игра завершена
+    socket.on('game_finished', ({ winner, reason }) => {
+        if (randomBtn) randomBtn.classList.add('hidden');
+        if (readyBtn) readyBtn.classList.add('hidden');
+
+        if (winner === 'you') {
+            statusMsgEl.textContent = '🏆 Победа! Скуф-адмирал!';
+        } else {
+            statusMsgEl.textContent = '💀 Поражение... В следующий раз повезёт.';
+        }
+
+        // Через 5 секунд закрываем оверлей
+        setTimeout(() => {
+            closeOverlay();
+        }, 5000);
     });
 
     // Второй игрок принял — отправитель закрывает любые плашки

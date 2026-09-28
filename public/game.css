@@ -219,3 +219,34 @@
         min-height: 44px;
     }
 }
+
+.game-cell.ship {
+    background: #6a8a4a;   /* зелёный — твой корабль */
+}
+.game-cell.hit {
+    background: #d94a2a;   /* красный — попадание */
+    position: relative;
+}
+.game-cell.hit::after {
+    content: '🔥';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+.game-cell.miss {
+    background: #2a3a4a;   /* синий — промах */
+    position: relative;
+}
+.game-cell.miss::after {
+    content: '•';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6a8ab0;
+    font-size: 18px;
+}
