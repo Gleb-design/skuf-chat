@@ -161,6 +161,9 @@ function handleEnemyCellClick(x, y) {
         renderEmptyBoard(myBoardEl, null);
         renderEmptyBoard(enemyBoardEl, null);
         statusMsgEl.textContent = 'Ожидание приглашения...';
+
+            // Очищаем чат при новой игре
+        if (gameChatLog) gameChatLog.innerHTML = ''; 
     }
 
     function closeOverlay() {
@@ -170,6 +173,67 @@ function handleEnemyCellClick(x, y) {
         state.phase = null;
         state.myBoard = [];
         state.enemyBoard = [];
+    }
+
+        // ========================================================
+    // МИНИ-ЧАТ
+    // ========================================================
+
+    const gameChatLog = document.getElementById('gameChatLog');
+    const gameChatInput = document.getElementById('gameChatInput');
+    const gameChatSendBtn = document.getElementById('gameChatSendBtn');
+
+    // Мой playerKey в игре ('player1' | 'player2' | null)
+    // Узнаём из game_battle — сервер должен прислать youAre
+    // (пока может быть null, но это не критично для отображения)
+
+    // Отправка сообщения
+    function sendGameChat() {
+        if (!gameChatInput || !state.gameId) return;
+        const text = gameChatInput.value.trim();
+        if (!text) return;
+
+        socket.emit('game_chat', {
+            gameId: state.gameId,
+            text: text,
+        });
+
+        gameChatInput.value = '';
+        gameChatInput.focus();
+    }
+
+    if (gameChatSendBtn) {
+        gameChatSendBtn.addEventListener('click', sendGameChat);
+    }
+    if (gameChatInput) {
+        gameChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendGameChat();
+        });
+    }
+
+    // Приём сообщений
+    socket.on('game_chat_msg', ({ from, fromUsername, text }) => {
+        if (!gameChatLog) return;
+
+        // Определяем «моё» это сообщение или соперника
+        // state.myPlayerKey приходит с сервера (см. ниже)
+        const isMe = state.myPlayerKey && from === state.myPlayerKey;
+
+        const msg = document.createElement('div');
+        msg.className = `game-chat-msg ${isMe ? 'me' : 'opponent'}`;
+        msg.innerHTML = `<strong>${fromUsername}:</strong> ${escapeHtml(text)}`;
+        gameChatLog.appendChild(msg);
+        gameChatLog.scrollTop = gameChatLog.scrollHeight;
+    });
+
+    // Простая защита от XSS — экранируем HTML в тексте
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // ========================================================
@@ -366,7 +430,8 @@ function handleEnemyCellClick(x, y) {
     });
 
     // Фаза боя началась (оба готовы)
-    socket.on('game_battle', ({ gameId, turn, myBoard, enemyBoard, opponentName }) => {
+    socket.on('game_battle', ({ gameId, turn, youAre, myBoard, enemyBoard, opponentName }) => {
+        state.myPlayerKey = youAre || null;  // ← НОВОЕ
         state.gameId = gameId;
         state.phase = 'battle';
         state.turn = turn;

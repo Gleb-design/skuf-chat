@@ -275,3 +275,98 @@
     transform: scale(1.05);
     transition: 0.1s;
 }
+
+/* ======================================================= */
+/* МИНИ-ЧАТ ВО ВРЕМЯ ИГРЫ                                  */
+/* ======================================================= */
+
+.game-chat {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 0 0 0;
+    border-top: 1px solid #3a3a46;
+    margin-top: 10px;
+    flex-shrink: 0;
+}
+
+.game-chat-log {
+    max-height: 120px;
+    min-height: 60px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.35;
+    scroll-behavior: smooth;
+}
+
+.game-chat-log:empty::before {
+    content: 'Тут можно перетереть с соперником...';
+    color: #5a5a68;
+    font-style: italic;
+    font-size: 12px;
+}
+
+.game-chat-msg {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+.game-chat-msg strong {
+    font-weight: 600;
+}
+.game-chat-msg.me {
+    color: #ffb74d;
+    text-align: right;
+}
+.game-chat-msg.opponent {
+    color: #a8c8ff;
+    text-align: left;
+}
+
+.game-chat-input {
+    display: flex;
+    gap: 6px;
+}
+
+.game-chat-input input {
+    flex: 1;
+    min-width: 0;
+    background: #32323d;
+    border: 1px solid #3a3a46;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.game-chat-input input:focus {
+    border-color: #594582;
+}
+
+.game-chat-input button {
+    background: #594582;
+    border: none;
+    color: #fff;
+    padding: 0 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: 0.15s;
+    flex-shrink: 0;
+}
+.game-chat-input button:hover {
+    background: #472b6d;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+    .game-chat-log {
+        max-height: 90px;
+    }
+}

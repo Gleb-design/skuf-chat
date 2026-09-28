@@ -429,6 +429,7 @@ module.exports = function initGame(io, deps) {
                 io.to(game.player1.socketId).emit('game_battle', {
                     gameId,
                     turn: game.turn === 'player1' ? 'you' : 'opponent',
+                    youAre: 'player1', 
                     myBoard: serializeMyBoard(game.player1.board),
                     enemyBoard: serializeEnemyBoard(game.player2.board),
                     opponentName: game.player2.username,
@@ -436,6 +437,7 @@ module.exports = function initGame(io, deps) {
                 io.to(game.player2.socketId).emit('game_battle', {
                     gameId,
                     turn: game.turn === 'player2' ? 'you' : 'opponent',
+                    youAre: 'player2',
                     myBoard: serializeMyBoard(game.player2.board),
                     enemyBoard: serializeEnemyBoard(game.player1.board),
                     opponentName: game.player1.username,
@@ -542,6 +544,37 @@ module.exports = function initGame(io, deps) {
                 x, y, result,
                 turn: game.turn === opponentKey ? 'you' : 'opponent',
             });
+        });
+
+                // --- МИНИ-ЧАТ ВО ВРЕМЯ ИГРЫ ---
+        socket.on('game_chat', ({ gameId, text } = {}) => {
+            const game = games.get(gameId);
+            if (!game) return;
+
+            // Игрок участник?
+            const playerKey = game.player1.socketId === socket.id ? 'player1'
+                            : game.player2.socketId === socket.id ? 'player2'
+                            : null;
+            if (!playerKey) return;
+
+            // Игра не завершена?
+            if (game.phase === 'finished') return;
+
+            // Текст валидный?
+            const trimmed = String(text || '').trim().slice(0, 200);
+            if (!trimmed) return;
+
+            // Отправляем обоим игрокам
+            const payload = {
+                gameId,
+                from: playerKey,
+                fromUsername: socket.username,
+                text: trimmed,
+                timestamp: Date.now(),
+            };
+
+            io.to(game.player1.socketId).emit('game_chat_msg', payload);
+            io.to(game.player2.socketId).emit('game_chat_msg', payload);
         });
 
         // --- ПОКИНУТЬ ИГРУ ---
