@@ -370,3 +370,84 @@
         max-height: 90px;
     }
 }
+
+/* ======================================================= */
+/* ТАБЫ ПЕРЕКЛЮЧЕНИЯ ПОЛЕЙ (только на мобилке)             */
+/* ======================================================= */
+
+.game-board-tabs {
+    display: none;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+}
+
+.game-board-tab {
+    flex: 1;
+    min-width: 0;
+    background: #2a2a32;
+    border: 1px solid #3a3a46;
+    color: #a0a0b0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.game-board-tab.active {
+    background: #594582;
+    border-color: #594582;
+    color: #fff;
+}
+
+@media (max-width: 768px) {
+    .game-board-tabs {
+        display: flex;
+    }
+
+    .game-boards {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        gap: 8px;
+    }
+
+    .game-board-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* По умолчанию показываем только моё поле */
+    .game-board-wrapper[data-board-wrapper="enemy"] {
+        display: none;
+    }
+
+    /* Переключение */
+    .game-boards.show-enemy .game-board-wrapper[data-board-wrapper="my"] {
+        display: none;
+    }
+    .game-boards.show-enemy .game-board-wrapper[data-board-wrapper="enemy"] {
+        display: flex;
+    }
+
+    /* Поле — не больше контейнера, с отступами */
+    .game-board {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}

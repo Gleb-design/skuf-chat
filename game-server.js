@@ -22,7 +22,7 @@ module.exports = function initGame(io, deps) {
     // Классический набор: 1×4, 2×3, 3×2, 4×1
     const SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
 
-    const IDLE_TIMEOUT_MS = 20 * 1000;      // 20 сек на ход
+    const IDLE_TIMEOUT_MS = 60 * 1000;      // 60 сек на ход
     const RECONNECT_GRACE_MS = 20 * 1000;   // 20 сек на возврат после отвала
 
     // ========================================================

@@ -136,12 +136,19 @@
     <span id="gameTurnIndicator"></span>
   </div>
 
+<!-- Табы для переключения полей (только на мобилке) -->
+<div class="game-board-tabs">
+  <button class="game-board-tab active" data-board="my">🎯 Моё поле</button>
+  <button class="game-board-tab" data-board="enemy">👁 Поле врага</button>
+</div>
+
+  <!-- Поля -->
   <div class="game-boards">
-    <div class="game-board-wrapper">
+    <div class="game-board-wrapper" data-board-wrapper="my">
       <h4>Твоё поле</h4>
       <div id="myBoard" class="game-board"></div>
     </div>
-    <div class="game-board-wrapper">
+    <div class="game-board-wrapper" data-board-wrapper="enemy">
       <h4>Поле врага</h4>
       <div id="enemyBoard" class="game-board"></div>
     </div>

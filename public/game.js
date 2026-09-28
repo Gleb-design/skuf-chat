@@ -161,6 +161,7 @@ function handleEnemyCellClick(x, y) {
         renderEmptyBoard(myBoardEl, null);
         renderEmptyBoard(enemyBoardEl, null);
         statusMsgEl.textContent = 'Ожидание приглашения...';
+        resetBoardTabs();  // ← сброс на «Моё поле»
 
             // Очищаем чат при новой игре
         if (gameChatLog) gameChatLog.innerHTML = ''; 
@@ -173,6 +174,40 @@ function handleEnemyCellClick(x, y) {
         state.phase = null;
         state.myBoard = [];
         state.enemyBoard = [];
+        resetBoardTabs();  // ← сброс при закрытии
+    }
+
+        // ========================================================
+    // ТАБЫ ПЕРЕКЛЮЧЕНИЯ ПОЛЕЙ (мобилка)
+    // ========================================================
+
+    const gameBoardTabs = document.querySelectorAll('.game-board-tab');
+    const gameBoards = document.querySelector('.game-boards');
+
+    gameBoardTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.board; // 'my' | 'enemy'
+
+            // Активный таб
+            gameBoardTabs.forEach((t) => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Переключаем видимость поля
+            if (target === 'enemy') {
+                gameBoards.classList.add('show-enemy');
+            } else {
+                gameBoards.classList.remove('show-enemy');
+            }
+        });
+    });
+
+    // При открытии оверлея — сбросить на «Моё поле»
+    function resetBoardTabs() {
+        if (!gameBoardTabs.length || !gameBoards) return;
+        gameBoardTabs.forEach((t) => t.classList.remove('active'));
+        const myTab = document.querySelector('.game-board-tab[data-board="my"]');
+        if (myTab) myTab.classList.add('active');
+        gameBoards.classList.remove('show-enemy');
     }
 
         // ========================================================
@@ -241,11 +276,21 @@ function handleEnemyCellClick(x, y) {
     // ========================================================
 
     // «🚢 Морской бой» в .private-controls — отправляет приглашение
-    btnGame.addEventListener('click', () => {
-        socket.emit('game_invite');
-        openOverlay();
-        statusMsgEl.textContent = 'Приглашение отправлено...';
-    });
+btnGame.addEventListener('click', () => {
+    // Кнопка видна только в привате (в .private-controls), но на всякий случай
+    // проверим, что мы действительно там — иначе сервер отдаст not_in_private
+    const privateControls = document.getElementById('privateControls');
+    const isPrivateMode = privateControls && !privateControls.classList.contains('hidden');
+
+    if (!isPrivateMode) {
+        console.warn('🚢 Морской бой: доступен только в привате 1-на-1');
+        return;
+    }
+
+    socket.emit('game_invite');
+    openOverlay();
+    statusMsgEl.textContent = 'Приглашение отправлено...';
+});
 
     // Выход из оверлея
     exitBtn.addEventListener('click', () => {
