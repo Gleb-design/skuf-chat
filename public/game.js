@@ -17,6 +17,7 @@
     const turnIndicatorEl = document.getElementById('gameTurnIndicator');
     const randomBtn = document.getElementById('gameRandomBtn');
     const readyBtn = document.getElementById('gameReadyBtn');
+    const rematchBtn = document.getElementById('gameRematchBtn');
     const statusMsgEl = document.getElementById('gameStatusMsg');
     const btnGame = document.getElementById('btnGame');
 
@@ -157,14 +158,16 @@ function handleEnemyCellClick(x, y) {
     // ========================================================
     function openOverlay() {
         overlay.classList.remove('hidden');
-        // Рисуем пустые поля (пока без данных)
         renderEmptyBoard(myBoardEl, null);
         renderEmptyBoard(enemyBoardEl, null);
         statusMsgEl.textContent = 'Ожидание приглашения...';
-        resetBoardTabs();  // ← сброс на «Моё поле»
+        resetBoardTabs();
 
-            // Очищаем чат при новой игре
-        if (gameChatLog) gameChatLog.innerHTML = ''; 
+        // Скрываем кнопку «Ещё раз» при новой игре
+        if (rematchBtn) rematchBtn.classList.add('hidden');
+
+        // Очищаем чат при новой игре
+        if (gameChatLog) gameChatLog.innerHTML = '';
     }
 
     function closeOverlay() {
@@ -277,8 +280,6 @@ function handleEnemyCellClick(x, y) {
 
     // «🚢 Морской бой» в .private-controls — отправляет приглашение
 btnGame.addEventListener('click', () => {
-    // Кнопка видна только в привате (в .private-controls), но на всякий случай
-    // проверим, что мы действительно там — иначе сервер отдаст not_in_private
     const privateControls = document.getElementById('privateControls');
     const isPrivateMode = privateControls && !privateControls.classList.contains('hidden');
 
@@ -287,9 +288,9 @@ btnGame.addEventListener('click', () => {
         return;
     }
 
+    // Отправляем приглашение
     socket.emit('game_invite');
-    openOverlay();
-    statusMsgEl.textContent = 'Приглашение отправлено...';
+    // Оверлей НЕ открываем — его откроет game_placing, когда соперник примет
 });
 
     // Выход из оверлея
@@ -306,6 +307,9 @@ btnGame.addEventListener('click', () => {
 
     socket.on('game_invite_sent', ({ toUsername }) => {
         statusMsgEl.textContent = `🎯 Приглашение отправлено: ${toUsername}`;
+        // Закрываем оверлей (если открыт) и показываем плашку в привате
+        closeOverlay();
+        showGameWaitingBar(toUsername);
     });
 
     socket.on('game_error', ({ reason }) => {
@@ -334,6 +338,9 @@ btnGame.addEventListener('click', () => {
     const gameInviteText = document.getElementById('gameInviteText');
     const gameInviteAcceptBtn = document.getElementById('gameInviteAcceptBtn');
     const gameInviteDeclineBtn = document.getElementById('gameInviteDeclineBtn');
+    const gameWaitingBar = document.getElementById('gameWaitingBar');
+    const gameWaitingText = document.getElementById('gameWaitingText');
+    const gameWaitingCancelBtn = document.getElementById('gameWaitingCancelBtn');
 
     // Показывает плашку «Игрок X зовёт в Морской бой»
     function showGameInviteBar(fromUsername, gameId) {
@@ -341,7 +348,7 @@ btnGame.addEventListener('click', () => {
 
         if (!gameInviteBar || !gameInviteText) return;
 
-        gameInviteText.textContent = `${fromUsername} зовёт в Морской бой`;
+        gameInviteText.textContent = `${fromUsername} зовёт в игру`;
         gameInviteBar.dataset.gameId = gameId; // запоминаем gameId
         gameInviteBar.classList.remove('hidden');
 
@@ -368,6 +375,19 @@ btnGame.addEventListener('click', () => {
         }
     }
 
+    // Показывает плашку «Ждём ответа на приглашение в игру»
+function showGameWaitingBar(toUsername) {
+    if (!gameWaitingBar) return;
+    if (gameWaitingText) {
+        gameWaitingText.textContent = `Ждём ответа от ${toUsername}...`;
+    }
+    gameWaitingBar.classList.remove('hidden');
+}
+
+function hideGameWaitingBar() {
+    if (gameWaitingBar) gameWaitingBar.classList.add('hidden');
+}
+
     // Кнопка «Принять»
     if (gameInviteAcceptBtn) {
         gameInviteAcceptBtn.addEventListener('click', () => {
@@ -388,6 +408,15 @@ btnGame.addEventListener('click', () => {
         });
     }
 
+    // Кнопка ✕ на плашке ожидания — отменить
+if (gameWaitingCancelBtn) {
+    gameWaitingCancelBtn.addEventListener('click', () => {
+        hideGameWaitingBar();
+        // Не отправляем game_decline — соперник ещё не принял.
+        // Просто скрываем плашку (игра останется в pending состоянии)
+    });
+}
+
     // ========================================================
     // SOCKET-СОБЫТИЯ ПРИГЛАШЕНИЯ
     // ========================================================
@@ -404,6 +433,13 @@ btnGame.addEventListener('click', () => {
     socket.on('game_placing', ({ gameId }) => {
         state.gameId = gameId;
         state.phase = 'placing';
+
+            // Скрываем плашку ожидания — соперник принял
+        hideGameWaitingBar();     // ← НОВАЯ СТРОКА
+
+        // Очищаем чат при новой игре
+        if (gameChatLog) gameChatLog.innerHTML = '';
+        
 
         // Открываем оверлей, если ещё не открыт
         if (overlay.classList.contains('hidden')) {
@@ -424,7 +460,7 @@ btnGame.addEventListener('click', () => {
     // Отправителю: получатель отклонил приглашение
     socket.on('game_declined', ({ byUsername }) => {
         statusMsgEl.textContent = `🚫 ${byUsername} отказался от игры.`;
-        // Закрываем оверлей через 2 секунды
+        hideGameWaitingBar();     // ← НОВАЯ СТРОКА
         setTimeout(() => {
             closeOverlay();
         }, 2000);
@@ -474,11 +510,26 @@ btnGame.addEventListener('click', () => {
         statusMsgEl.textContent = 'Корабли расставлены. Жми «✅ Готов», когда готов.';
     });
 
+        // Кнопка «🔄 Ещё раз» — отправить новое приглашение тому же сопернику
+    if (rematchBtn) {
+        rematchBtn.addEventListener('click', () => {
+            // Прячем кнопки результата
+            if (rematchBtn) rematchBtn.classList.add('hidden');
+
+            // Закрываем оверлей
+            closeOverlay();
+
+            // Отправляем новое приглашение
+            socket.emit('game_invite');
+        });
+    }
+
     // Фаза боя началась (оба готовы)
     socket.on('game_battle', ({ gameId, turn, youAre, myBoard, enemyBoard, opponentName }) => {
         state.myPlayerKey = youAre || null;  // ← НОВОЕ
         state.gameId = gameId;
         state.phase = 'battle';
+
         state.turn = turn;
         state.myBoard = myBoard;
         state.enemyBoard = enemyBoard;
@@ -546,22 +597,22 @@ btnGame.addEventListener('click', () => {
         }
     });
 
-    // Игра завершена
-    socket.on('game_finished', ({ winner, reason }) => {
-        if (randomBtn) randomBtn.classList.add('hidden');
-        if (readyBtn) readyBtn.classList.add('hidden');
+socket.on('game_finished', ({ winner, reason }) => {
+    if (randomBtn) randomBtn.classList.add('hidden');
+    if (readyBtn) readyBtn.classList.add('hidden');
 
-        if (winner === 'you') {
-            statusMsgEl.textContent = '🏆 Победа! Скуф-адмирал!';
-        } else {
-            statusMsgEl.textContent = '💀 Поражение... В следующий раз повезёт.';
-        }
+    if (winner === 'you') {
+        statusMsgEl.textContent = '🏆 Победа! Скуф-адмирал!';
+    } else {
+        statusMsgEl.textContent = '💀 Поражение... В следующий раз повезёт.';
+    }
 
-        // Через 5 секунд закрываем оверлей
-        setTimeout(() => {
-            closeOverlay();
-        }, 5000);
-    });
+    // Показываем кнопку «Ещё раз»
+    if (rematchBtn) rematchBtn.classList.remove('hidden');
+
+    // НЕ закрываем оверлей автоматически — игрок сам решит
+    // (старый setTimeout убираем)
+});
 
     // Второй игрок принял — отправитель закрывает любые плашки
     socket.on('game_accepted', ({ gameId }) => {

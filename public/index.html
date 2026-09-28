@@ -109,6 +109,13 @@
         <button class="invite-accept-btn" id="gameInviteAcceptBtn" type="button">Принять</button>
         <button class="invite-decline-btn" id="gameInviteDeclineBtn" type="button">Отклонить</button>
       </div>
+
+      <!-- Плашка ожидания ответа на приглашение в игру -->
+<div id="gameWaitingBar" class="game-waiting-bar hidden">
+  <span class="game-waiting-icon">⏳</span>
+  <span class="game-waiting-text" id="gameWaitingText">Ждём ответа на приглашение в игру...</span>
+  <button class="game-waiting-cancel" id="gameWaitingCancelBtn" type="button" title="Отменить">✕</button>
+</div>
       
             <div class="input-row">
         <button id="emojiBtn" class="emoji-btn" type="button" title="Смайлы">😊</button>
@@ -157,6 +164,7 @@
   <div class="game-controls">
     <button id="gameRandomBtn" class="hidden">🎲 Расставить случайно</button>
     <button id="gameReadyBtn" class="hidden">✅ Готов</button>
+    <button id="gameRematchBtn" class="hidden">🔄 Ещё раз</button>
     <div id="gameStatusMsg"></div>
   </div>
 

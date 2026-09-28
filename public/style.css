@@ -1856,7 +1856,9 @@ a,
     font-size: 13px;
     color: #ddd;
     animation: inviteSlideIn 0.3s ease-out;
+    flex-wrap: wrap;              /* ← НОВОЕ: разрешить перенос на 2 строки на узких */
 }
+
 .private-invite-bar.hidden {
     display: none !important;
 }
@@ -1875,15 +1877,19 @@ a,
     color: #ccc;
 }
 
-.invite-accept-btn,
-.invite-decline-btn {
+.private-invite-bar .invite-accept-btn,
+.private-invite-bar .invite-decline-btn,
+.game-invite-bar .invite-accept-btn,
+.game-invite-bar .invite-decline-btn {
     border: none;
-    padding: 6px 12px;
+    padding: 8px 16px;
     border-radius: 6px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     flex-shrink: 0;
+    white-space: nowrap;
+    min-width: 80px;
     transition: background 0.15s, transform 0.1s;
 }
 
