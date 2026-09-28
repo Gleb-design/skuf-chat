@@ -492,6 +492,11 @@ if (gameWaitingCancelBtn) {
 
     // Пришло приглашение от другого игрока
     socket.on('game_invited', ({ gameId, fromUsername }) => {
+        // Закрываем оверлей (если открыт) — чтобы игрок увидел плашку приглашения
+        // внизу. Это важно для реванша: у игрока остался экран с результатом.
+        if (!overlay.classList.contains('hidden')) {
+            closeOverlay();
+        }
         showGameInviteBar(fromUsername, gameId);
     });
 
@@ -523,6 +528,7 @@ if (gameWaitingCancelBtn) {
         // Показываем кнопки расстановки (пока заглушки — этап 1.2.2.2)
         if (randomBtn) randomBtn.classList.remove('hidden');
         if (readyBtn) readyBtn.classList.remove('hidden');
+        if (rematchBtn) rematchBtn.classList.add('hidden');
     });
 
     // Получателю: отправитель отклонил? — уже обрабатывается на сервере
@@ -607,6 +613,7 @@ if (gameWaitingCancelBtn) {
         // Скрываем кнопки расстановки
         if (randomBtn) randomBtn.classList.add('hidden');
         if (readyBtn) readyBtn.classList.add('hidden');
+        if (rematchBtn) rematchBtn.classList.add('hidden');
 
         // Обновляем UI
         opponentNameEl.textContent = `Соперник: ${state.opponentName}`;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skuf-chat-v11';
+const CACHE_NAME = 'skuf-chat-v12';
 const assets = [
   '/',
   '/index.html',
