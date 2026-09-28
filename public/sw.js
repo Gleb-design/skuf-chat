@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skuf-chat-v10';
+const CACHE_NAME = 'skuf-chat-v11';
 const assets = [
   '/',
   '/index.html',
@@ -40,9 +40,23 @@ self.addEventListener('activate', (e) => {
 
 // Запуск приложения из кэша для максимальной скорости
 self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request);
-    })
-  );
+    // Игнорируем запросы, которые не подходят для кэша:
+    //  - не GET (POST, PUT и т.п.)
+    //  - чужой origin (внешние CDN, analytics и т.д.)
+    //  - socket.io (WebSocket / polling — их нельзя кэшировать)
+    if (e.request.method !== 'GET') return;
+    const url = new URL(e.request.url);
+    if (url.origin !== self.location.origin) return;
+    if (url.pathname.startsWith('/socket.io/')) return;
+
+    e.respondWith(
+        caches.match(e.request)
+            .then((cachedResponse) => cachedResponse || fetch(e.request))
+            .catch(() => {
+                // Не смогли достать из сети — ничего не делаем,
+                // браузер покажет свою ошибку. Это лучше, чем
+                // спамить Uncaught TypeError в консоли.
+                return new Response('', { status: 408, statusText: 'Offline' });
+            })
+    );
 });

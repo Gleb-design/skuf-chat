@@ -15,6 +15,7 @@
     const enemyBoardEl = document.getElementById('enemyBoard');
     const opponentNameEl = document.getElementById('gameOpponentName');
     const turnIndicatorEl = document.getElementById('gameTurnIndicator');
+    const timerEl = document.getElementById('gameTimer');
     const randomBtn = document.getElementById('gameRandomBtn');
     const readyBtn = document.getElementById('gameReadyBtn');
     const rematchBtn = document.getElementById('gameRematchBtn');
@@ -171,6 +172,8 @@ function handleEnemyCellClick(x, y) {
     }
 
     function closeOverlay() {
+            // Останавливаем таймер
+        stopTurnTimer();
         overlay.classList.add('hidden');
         // Сбрасываем состояние
         state.gameId = null;
@@ -178,6 +181,72 @@ function handleEnemyCellClick(x, y) {
         state.myBoard = [];
         state.enemyBoard = [];
         resetBoardTabs();  // ← сброс при закрытии
+    }
+
+        // ========================================================
+    // ТАЙМЕР ХОДА
+    // ========================================================
+    // IDLE_TIMEOUT_MS должен совпадать с game-server.js (60 сек).
+    // Но мы не полагаемся на это жёстко — таймер сбрасывается при
+    // каждом game_shot_result / game_opponent_shot (когда ход меняется).
+
+    const IDLE_TIMEOUT_SEC = 60;
+
+    let timerIntervalId = null;
+    let timerSecondsLeft = IDLE_TIMEOUT_SEC;
+
+    // Запускает/перезапускает таймер хода
+    function startTurnTimer() {
+        // Сбрасываем
+        if (timerIntervalId) {
+            clearInterval(timerIntervalId);
+            timerIntervalId = null;
+        }
+        timerSecondsLeft = IDLE_TIMEOUT_SEC;
+
+        // Скрываем, если оверлей не в фазе боя
+        if (!timerEl) return;
+        timerEl.classList.remove('hidden', 'warning');
+        updateTimerDisplay();
+
+        // Тик каждую секунду
+        timerIntervalId = setInterval(() => {
+            timerSecondsLeft--;
+            if (timerSecondsLeft <= 0) {
+                timerSecondsLeft = 0;
+                stopTurnTimer();  // сервер сам завершит игру
+                updateTimerDisplay();
+                return;
+            }
+            updateTimerDisplay();
+        }, 1000);
+    }
+
+    // Останавливает и прячет таймер
+    function stopTurnTimer() {
+        if (timerIntervalId) {
+            clearInterval(timerIntervalId);
+            timerIntervalId = null;
+        }
+        if (timerEl) {
+            timerEl.classList.add('hidden');
+            timerEl.classList.remove('warning');
+        }
+    }
+
+    // Обновляет текст таймера (0:60 → 0:59 → 0:58...)
+    function updateTimerDisplay() {
+        if (!timerEl) return;
+        const m = Math.floor(timerSecondsLeft / 60);
+        const s = timerSecondsLeft % 60;
+        timerEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+
+        // Последние 10 секунд — красным с пульсацией
+        if (timerSecondsLeft <= 10) {
+            timerEl.classList.add('warning');
+        } else {
+            timerEl.classList.remove('warning');
+        }
     }
 
         // ========================================================
@@ -552,6 +621,8 @@ if (gameWaitingCancelBtn) {
             turnIndicatorEl.textContent = '⌛ Ход соперника';
             statusMsgEl.textContent = 'Ждём хода соперника...';
         }
+            // Запускаем таймер хода
+    startTurnTimer();
     });
 
     // ========================================================
@@ -578,6 +649,10 @@ if (gameWaitingCancelBtn) {
                 statusMsgEl.textContent = 'Ждём хода соперника...';
             }
         }
+            // Перезапускаем таймер — ход может остаться у нас или перейти
+    if (state.phase === 'battle') {
+        startTurnTimer();
+    }
     });
 
     // Соперник стрелял — результат на нашем поле
@@ -595,9 +670,15 @@ if (gameWaitingCancelBtn) {
                 turnIndicatorEl.textContent = '⌛ Ход соперника';
             }
         }
+            // Перезапускаем таймер — соперник сходил, теперь наш ход или его
+    if (state.phase === 'battle') {
+        startTurnTimer();
+    }
     });
 
 socket.on('game_finished', ({ winner, reason }) => {
+        // Останавливаем таймер
+    stopTurnTimer();
     if (randomBtn) randomBtn.classList.add('hidden');
     if (readyBtn) readyBtn.classList.add('hidden');
 

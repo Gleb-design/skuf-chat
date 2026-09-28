@@ -56,6 +56,39 @@
     font-size: 14px;
     color: #a0a0b0;
     flex-shrink: 0;
+    gap: 10px;
+}
+
+/* Таймер хода */
+.game-timer {
+    background: rgba(255, 183, 77, 0.15);
+    border: 1px solid #ffb74d;
+    color: #ffb74d;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    min-width: 52px;
+    text-align: center;
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+}
+.game-timer.hidden {
+    display: none !important;
+}
+
+/* Последние 10 секунд — красным */
+.game-timer.warning {
+    background: rgba(217, 74, 42, 0.25);
+    border-color: #d94a2a;
+    color: #ff8888;
+    animation: timerPulse 1s infinite ease-in-out;
+}
+
+@keyframes timerPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.55; }
 }
 #gameTurnIndicator {
     font-weight: bold;
