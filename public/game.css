@@ -162,3 +162,60 @@
         width: min(85vw, 340px);
     }
 }
+
+/* ======================================================= */
+/* ПЛАШКА ПРИГЛАШЕНИЯ В ИГРУ (Морской бой)                 */
+/* ======================================================= */
+
+.game-invite-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: rgba(30, 100, 150, 0.25);
+    border-left: 3px solid #4a9eff;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ddd;
+    animation: inviteSlideIn 0.3s ease-out;
+}
+
+.game-invite-bar.hidden {
+    display: none !important;
+}
+
+.game-invite-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.game-invite-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #ccc;
+}
+
+/* На мобилке — вертикально */
+@media (max-width: 480px) {
+    .game-invite-bar {
+        flex-wrap: wrap;
+        font-size: 13px;
+        gap: 6px;
+        padding: 10px 12px;
+    }
+    .game-invite-text {
+        flex-basis: 100%;
+        white-space: normal;
+    }
+    .game-invite-bar .invite-accept-btn,
+    .game-invite-bar .invite-decline-btn {
+        flex: 1;
+        padding: 14px 12px;
+        font-size: 14px;
+        min-height: 44px;
+    }
+}

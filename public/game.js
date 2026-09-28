@@ -124,5 +124,116 @@
         console.warn('⚠️ game_error:', reason);
     });
 
+        // ========================================================
+    // ПРИЁМ ПРИГЛАШЕНИЯ
+    // ========================================================
+
+    // Элементы плашки приглашения
+    const gameInviteBar = document.getElementById('gameInviteBar');
+    const gameInviteText = document.getElementById('gameInviteText');
+    const gameInviteAcceptBtn = document.getElementById('gameInviteAcceptBtn');
+    const gameInviteDeclineBtn = document.getElementById('gameInviteDeclineBtn');
+
+    // Показывает плашку «Игрок X зовёт в Морской бой»
+    function showGameInviteBar(fromUsername, gameId) {
+        hideGameInviteBar(); // на случай повторных вызовов
+
+        if (!gameInviteBar || !gameInviteText) return;
+
+        gameInviteText.textContent = `${fromUsername} зовёт в Морской бой`;
+        gameInviteBar.dataset.gameId = gameId; // запоминаем gameId
+        gameInviteBar.classList.remove('hidden');
+
+        // Авто-скрытие через 30 секунд
+        if (window.__gameInviteTimeoutId) {
+            clearTimeout(window.__gameInviteTimeoutId);
+        }
+        window.__gameInviteTimeoutId = setTimeout(() => {
+            if (!gameInviteBar.classList.contains('hidden')) {
+                socket.emit('game_decline', { gameId });
+                hideGameInviteBar();
+            }
+        }, 30000);
+    }
+
+    function hideGameInviteBar() {
+        if (gameInviteBar) {
+            gameInviteBar.classList.add('hidden');
+            gameInviteBar.dataset.gameId = '';
+        }
+        if (window.__gameInviteTimeoutId) {
+            clearTimeout(window.__gameInviteTimeoutId);
+            window.__gameInviteTimeoutId = null;
+        }
+    }
+
+    // Кнопка «Принять»
+    if (gameInviteAcceptBtn) {
+        gameInviteAcceptBtn.addEventListener('click', () => {
+            const gameId = gameInviteBar?.dataset.gameId;
+            if (!gameId) return;
+            socket.emit('game_accept', { gameId });
+            hideGameInviteBar();
+        });
+    }
+
+    // Кнопка «Отклонить»
+    if (gameInviteDeclineBtn) {
+        gameInviteDeclineBtn.addEventListener('click', () => {
+            const gameId = gameInviteBar?.dataset.gameId;
+            if (!gameId) return;
+            socket.emit('game_decline', { gameId });
+            hideGameInviteBar();
+        });
+    }
+
+    // ========================================================
+    // SOCKET-СОБЫТИЯ ПРИГЛАШЕНИЯ
+    // ========================================================
+
+    // Пришло приглашение от другого игрока
+    socket.on('game_invited', ({ gameId, fromUsername }) => {
+        showGameInviteBar(fromUsername, gameId);
+    });
+
+    // Отправителю: получатель принял → начинается расстановка
+    // (сервер шлёт game_placing обоим после accept)
+
+    // Получили сигнал о начале расстановки
+    socket.on('game_placing', ({ gameId }) => {
+        state.gameId = gameId;
+        state.phase = 'placing';
+
+        // Открываем оверлей, если ещё не открыт
+        if (overlay.classList.contains('hidden')) {
+            overlay.classList.remove('hidden');
+            renderEmptyBoard(myBoardEl, null);
+            renderEmptyBoard(enemyBoardEl, null);
+        }
+
+        statusMsgEl.textContent = '⚙️ Расстановка кораблей...';
+        opponentNameEl.textContent = 'Соперник: найден';
+
+        // Показываем кнопки расстановки (пока заглушки — этап 1.2.2.2)
+        if (randomBtn) randomBtn.classList.remove('hidden');
+        if (readyBtn) readyBtn.classList.remove('hidden');
+    });
+
+    // Получателю: отправитель отклонил? — уже обрабатывается на сервере
+    // Отправителю: получатель отклонил приглашение
+    socket.on('game_declined', ({ byUsername }) => {
+        statusMsgEl.textContent = `🚫 ${byUsername} отказался от игры.`;
+        // Закрываем оверлей через 2 секунды
+        setTimeout(() => {
+            closeOverlay();
+        }, 2000);
+    });
+
+    // Второй игрок принял — отправитель закрывает любые плашки
+    socket.on('game_accepted', ({ gameId }) => {
+        hideGameInviteBar();
+    });
+
     console.log('🚢 Морской бой: клиентский модуль загружен');
 })();
+
