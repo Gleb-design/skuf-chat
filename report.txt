@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.22.6
+Версия: v1.22.8
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.22.6 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.22.8 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.22.6
+- Стабильная версия: v1.22.8
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -71,7 +71,7 @@
 - beer.mp3 (чужое сообщение) — volume 0.1
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v9)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v10)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -96,7 +96,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v9' (актуально с v1.22.1)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v10' (актуально с v1.22.8)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -146,7 +146,7 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v9' (актуально с v1.22.1)
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v10' (актуально с v1.22.8)
 ⚠️ ОТКАТАНО в v1.16.1...
 Оставлено как справка на будущее.
 ### Перевода сообщений / GlobeSkuf (v1.17.0)
@@ -509,16 +509,54 @@ skuf-chat/
   • Первые две кнопки (flex: 1 1 30%) — в одну строку.
   • #btnCancelSearch (flex: 1 1 100%) — на всю ширину, во вторую строку.
   • Медиа-запрос ≤420px: font-size 12px, padding 8px 6px.
+- v1.22.7 — табы полей на мобилке + таймаут 60с
+  • .game-board-tabs — переключатель «🎯 Моё поле» / «👁 Поле врага»
+    на мобилке (≤768px). На десктопе оба поля рядом, табы скрыты.
+  • Логика в game.js: gameBoardTabs, обработчики кликов,
+    resetBoardTabs() при открытии/закрытии оверлея.
+  • Атрибуты data-board-wrapper="my"/"enemy" на обёртках полей.
+  • CSS: .game-boards.show-enemy → переключение видимости.
+  • game-server.js: IDLE_TIMEOUT_MS = 60 * 1000 (было 20).
+  • Файлы: public/index.html, public/game.css, public/game.js,
+    game-server.js.
+- v1.22.8 — плашка ожидания + фикс кнопок
+  • Плашка gameWaitingBar в index.html: «⏳ Ждём ответа от [Ник]...»
+    с кнопкой ✕ отмены. Показывается отправителю после game_invite_sent.
+  • Обработчики в game.js: showGameWaitingBar / hideGameWaitingBar.
+    Скрывается при game_placing (соперник принял) или game_declined.
+  • Кнопка «🚢 Морской бой» больше НЕ открывает оверлей сразу —
+    только отправляет game_invite. Оверлей открывает game_placing.
+  • Кнопка «🔄 Ещё раз» (gameRematchBtn) — после game_finished.
+    Показывается обоим игрокам. По клику: closeOverlay + game_invite.
+  • game_finished: убран setTimeout(() => closeOverlay(), 5000) —
+    оверлей больше НЕ закрывается автоматически.
+  • Очистка gameChatLog при game_battle (начало боя).
+  • Фикс: кнопки в плашках .private-invite-bar и .game-invite-bar
+    перебивались правилом .chat-input-area button (padding: 0 20px).
+    Усилены селекторы: .private-invite-bar .invite-accept-btn,
+    .game-invite-bar .invite-accept-btn и т.д.
+  • Стили .game-waiting-bar, .game-waiting-icon (крутящийся ⏳),
+    @keyframes waitingSpin.
+  • CACHE_NAME → skuf-chat-v10 (сброс кэша стилей).
+  • Файлы: public/index.html, public/game.css, public/game.js,
+    public/style.css, public/sw.js.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
-### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.6
+### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.8
 - ✅ Серверная логика (v1.22.0)
 - ✅ UI-каркас (v1.22.1)
 - ✅ Приглашение (v1.22.2)
 - ✅ Расстановка + старт боя (v1.22.3)
 - ✅ Выстрелы (v1.22.4)
 - ✅ Мини-чат (v1.22.5)
-- ⏳ Ручная расстановка, «Ещё раз», звуки, анимации — в бэклоге
+- ✅ Табы полей на мобилке (v1.22.7)
+- ✅ Таймаут 60с (v1.22.7)
+- ✅ Кнопка «Ещё раз» (v1.22.8)
+- ✅ Плашка ожидания ответа (v1.22.8)
+- ⏳ Ручная расстановка кораблей (клики / drag&drop) — в бэклоге
+- ⏳ Звуки выстрелов/попаданий — в бэклоге
+- ⏳ Анимации попаданий — в бэклоге
+- ⏳ Grace-period reconnect (20 сек на возврат) — константа есть, не используется
 
 
 ### МОНЕТИЗАЦИЯ (обсуждено, к реализации)
@@ -685,7 +723,7 @@ Render Key Value (Redis) — free tier, подходит.
 - На десктопе .msg-actions работает как раньше (hover)
 - Кнопки приглашения в приват на мобилке (≤480px): min-height: 44px
 
-## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.6)
+## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.8)
 
 ### Архитектура
 - **Сервер:** модуль `game-server.js` (в корне). Экспортирует
@@ -741,7 +779,7 @@ Render Key Value (Redis) — free tier, подходит.
 - Попадание (`hit`) / потопление (`sunk`) → ход остаётся у стрелка.
 
 ### Таймеры
-- **IDLE_TIMEOUT_MS = 20 сек** — на ход. Если игрок не ходит, техпоражение.
+- **IDLE_TIMEOUT_MS = 60 сек** — на ход. Если игрок не ходит, техпоражение.
 - **RECONNECT_GRACE_MS = 20 сек** — НЕ реализовано пока. При disconnect
   игра завершается техпоражением сразу (упрощённо).
 
@@ -768,11 +806,22 @@ Render Key Value (Redis) — free tier, подходит.
 - **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v9.
 - **`public/style.css`** — .private-controls для мобилки (v1.22.6).
 
+### Что добавлено в v1.22.7-v1.22.8
+- **Табы полей** (.game-board-tabs) — на мобилке (≤768px) переключение
+  между «🎯 Моё поле» и «👁 Поле врага». На десктопе оба поля рядом.
+- **Таймаут 60 сек** (IDLE_TIMEOUT_MS).
+- **Плашка ожидания** (gameWaitingBar) — «⏳ Ждём ответа от [Ник]...»
+  с кнопкой ✕. Показывается отправителю после game_invite_sent.
+  Скрывается при game_placing / game_declined.
+- **Кнопка «🔄 Ещё раз»** (gameRematchBtn) — после game_finished.
+  Не закрывает оверлей автоматически.
+- **Фикс кнопок в плашках** — усилены селекторы, чтобы
+  .chat-input-area button не перебивал padding.
+
 ### Бэклог по игре
 - 🚧 Ручная расстановка кораблей (клики / drag&drop).
 - 🚧 Полная валидация `board` на сервере.
 - 🚧 Grace-period на reconnect (20 сек на возврат).
-- 🚧 Кнопка «Ещё раз» после победы.
 - 🚧 Улучшенный экран победы/поражения.
 - 🚧 Звуки выстрелов, попаданий, потоплений.
 - 🚧 Анимации попаданий.
