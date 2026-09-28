@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.21.1
+Версия: v1.22.6
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.21.1 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.22.6 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.21.1
+- Стабильная версия: v1.22.6
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -71,7 +71,7 @@
 - beer.mp3 (чужое сообщение) — volume 0.1
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v8)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v9)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -96,7 +96,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v8' (актуально с v1.21.1)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v9' (актуально с v1.22.1)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -146,8 +146,8 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v6'
-⚠️ ОТКАТАНО в v1.16.1. Причина: нестабильность источников перевода.
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v9' (актуально с v1.22.1)
+⚠️ ОТКАТАНО в v1.16.1...
 Оставлено как справка на будущее.
 ### Перевода сообщений / GlobeSkuf (v1.17.0)
 - Кнопка 🌐 под каждым ЧУЖИМ сообщением (incoming). Своего — нет.
@@ -216,6 +216,8 @@
 skuf-chat/
 ├── public/
 │   ├── client.js
+│   ├── game.js            ← новый (v1.22.0) — клиентская логика игры
+│   ├── game.css           ← новый (v1.22.1) — стили игры
 │   ├── index.html
 │   ├── style.css
 │   ├── sw.js
@@ -226,6 +228,7 @@ skuf-chat/
 │   ├── click.mp3
 │   ├── beer.mp3
 │   └── ambient.mp3       ← новый (v1.15.0)
+├── game-server.js         ← новый (v1.22.0) — серверная логика игры
 ├── server.js
 ├── package.json
 ├── package-lock.json
@@ -451,8 +454,72 @@ skuf-chat/
   • Без этого браузер пользователя мог держать старый client.js/style.css
     из кэша и popup не работал бы на проде.
   • Файл: public/sw.js.
+- v1.22.0 — МОРСКОЙ БОЙ: серверная логика
+  • RAM-хранилище игр (Map games + socketToGame).
+  • События: game_invite, game_accept, game_decline, game_place_ships,
+    game_shot, game_leave. Отправка: game_invited, game_invite_sent,
+    game_placing, game_board_accepted, game_battle, game_shot_result,
+    game_opponent_shot, game_finished, game_error, game_declined.
+  • Поле 10×10. Корабли 1×4, 2×3, 3×2, 4×1 (классика).
+  • Функции: generateRandomBoard, canPlaceShip, placeShip,
+    checkShipSunk, isAllSunk, markAroundSunk, serializeMyBoard,
+    serializeEnemyBoard, endGame, resetIdleTimer.
+  • Таймер бездействия 20 сек, grace-period на reconnect — 20 сек (TODO).
+  • Файл: game-server.js (модуль, вызывается из server.js через initGame).
+  • server.js: добавлены require('./game-server') и initGame(io, {sessionsByKey,
+    findSocketBySessionKey}).
+- v1.22.1 — Морской бой: UI-каркас
+  • Кнопка «🚢 Морской бой» в .private-controls.
+  • Оверлей gameOverlay (HTML): заголовок, инфа о сопернике,
+    два поля (myBoard, enemyBoard), кнопки «Расставить случайно» и «Готов».
+  • Файлы: public/game.js (каркас), public/game.css (стили).
+  • CACHE_NAME → skuf-chat-v9.
+  • Добавлены в sw.js: /game.css, /game.js.
+- v1.22.2 — Морской бой: приём приглашения
+  • Плашка gameInviteBar в index.html: «[Ник] зовёт в Морской бой»
+    с кнопками «Принять» / «Отклонить».
+  • Обработчики game_invited, game_accept, game_decline, game_placing.
+  • showGameInviteBar / hideGameInviteBar, авто-скрытие 30 сек.
+  • Стили .game-invite-bar (переиспользует .invite-accept-btn /
+    .invite-decline-btn из v1.20.0).
+- v1.22.3 — Морской бой: расстановка и старт боя
+  • renderMyBoard — отрисовка кораблей на своём поле.
+  • renderEmptyBoard — пустое поле 10×10.
+  • Обработчики game_board_accepted, game_battle, game_finished.
+  • Кнопки «🎲 Расставить случайно» и «✅ Готов» → game_place_ships.
+  • При готовности обоих — сервер переводит в фазу battle.
+  • Стили .game-cell.ship / .hit / .miss / .sunk.
+- v1.22.4 — Морской бой: выстрелы
+  • handleEnemyCellClick — клик по клетке врага → game_shot.
+  • renderEnemyBoard — поле врага с обработчиками кликов.
+  • renderShotResult — отрисовка результата выстрела (hit/miss/sunk).
+  • Обработчики game_shot_result и game_opponent_shot.
+  • Передача хода при промахе, ход остаётся при попадании.
+  • Индикатор хода «🎯 Твой ход!» / «⌛ Ход соперника».
+- v1.22.5 — Морской бой: мини-чат
+  • Приватный чат между игроками прямо в оверлее.
+  • Событие game_chat → game_chat_msg (только двум игрокам, не в общий).
+  • Разметка gameChat в index.html: лог + поле ввода + кнопка ➤.
+  • escapeHtml — защита от XSS.
+  • Лимит 200 символов.
+  • Стили .game-chat-log, .game-chat-msg.me / .opponent.
+  • youAre в game_battle — для определения «моё/чужое» сообщение.
+- v1.22.6 — фикс UI: кнопки привата не обрезаются на мобилке
+  • .private-controls → flex-wrap: wrap на ≤768px.
+  • Первые две кнопки (flex: 1 1 30%) — в одну строку.
+  • #btnCancelSearch (flex: 1 1 100%) — на всю ширину, во вторую строку.
+  • Медиа-запрос ≤420px: font-size 12px, padding 8px 6px.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
+### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.6
+- ✅ Серверная логика (v1.22.0)
+- ✅ UI-каркас (v1.22.1)
+- ✅ Приглашение (v1.22.2)
+- ✅ Расстановка + старт боя (v1.22.3)
+- ✅ Выстрелы (v1.22.4)
+- ✅ Мини-чат (v1.22.5)
+- ⏳ Ручная расстановка, «Ещё раз», звуки, анимации — в бэклоге
+
 
 ### МОНЕТИЗАЦИЯ (обсуждено, к реализации)
 1. **Донат "на пиво"** — кнопка 🍺 в шапке → ✅ СДЕЛАНО в v1.13.0
@@ -577,6 +644,9 @@ Render Key Value (Redis) — free tier, подходит.
   цитаты reply (.msg-reply-quote), кнопки действий (.msg-actions),
   плашка приглашений (.private-invite-bar)
 - public/sw.js — service worker
+- game-server.js — серверная логика Морского боя (initGame)
+- public/game.js — клиентская логика Морского боя
+- public/game.css — стили Морского боя (оверлей, поля, чат)
 
 ## 19. ТЕКУЩИЕ ПРАВИЛА ПО ТЕМАМ (важно, чтобы не сломать!)
 - Темы: .chat-area.theme-X + .messages-wrapper.theme-X
@@ -615,4 +685,95 @@ Render Key Value (Redis) — free tier, подходит.
 - На десктопе .msg-actions работает как раньше (hover)
 - Кнопки приглашения в приват на мобилке (≤480px): min-height: 44px
 
+## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.6)
+
+### Архитектура
+- **Сервер:** модуль `game-server.js` (в корне). Экспортирует
+  `initGame(io, deps)`, где `deps = { sessionsByKey, findSocketBySessionKey }`.
+  Вызывается из server.js ОДИН раз — модуль сам подписывается
+  на `io.on('connection')`.
+- **Клиент:** `public/game.js` (IIFE, использует глобальный `socket`
+  из client.js). Загружается ПОСЛЕ client.js.
+- **Хранилище игр:** RAM, `Map<gameId, GameState>` + `Map<socketId, gameId>`.
+  Улетает при рестарте Render — не критично, игры короткие.
+- **Поле:** 10×10. Корабли: 1×4, 2×3, 3×2, 4×1 (классика).
+
+### Фазы игры
+1. **waiting** — приглашение отправлено, ждём accept/decline.
+2. **placing** — оба игрока расставляют корабли.
+3. **battle** — по очереди стреляют.
+4. **finished** — игра окончена, есть победитель.
+
+### События (client → server)
+| Событие | Payload | Что делает |
+|---|---|---|
+| `game_invite` | — | Пригласить партнёра из привата |
+| `game_accept` | `{ gameId }` | Принять приглашение |
+| `game_decline` | `{ gameId }` | Отклонить |
+| `game_place_ships` | `{ gameId, random?: true, board?: 2D }` | Расстановка |
+| `game_shot` | `{ gameId, x, y }` | Выстрел |
+| `game_chat` | `{ gameId, text }` | Сообщение в мини-чат |
+| `game_leave` | `{ gameId }` | Выйти из игры |
+
+### События (server → client)
+| Событие | Payload | Когда |
+|---|---|---|
+| `game_invited` | `{ gameId, fromUsername }` | Пришло приглашение |
+| `game_invite_sent` | `{ gameId, toUsername }` | Приглашение ушло |
+| `game_declined` | `{ byUsername }` | Тебе отказали |
+| `game_placing` | `{ gameId }` | Оба приняли, фаза расстановки |
+| `game_board_accepted` | `{ gameId, board }` | Твоё поле принято |
+| `game_battle` | `{ gameId, turn, youAre, myBoard, enemyBoard, opponentName }` | Оба готовы, бой начался |
+| `game_shot_result` | `{ x, y, result, turn }` | Результат твоего выстрела |
+| `game_opponent_shot` | `{ x, y, result, turn }` | Соперник стрелял |
+| `game_chat_msg` | `{ from, fromUsername, text, timestamp }` | Сообщение в чате |
+| `game_finished` | `{ winner: 'you'/'opponent', reason }` | Игра окончена |
+| `game_error` | `{ reason }` | Ошибка |
+
+### Результаты выстрела
+- `miss` — мимо (синяя точка).
+- `hit` — попал (красная клетка с 🔥).
+- `sunk` — потопил (тёмно-красная клетка с ☠️).
+- При `sunk` клетки вокруг корабля автоматически помечаются как `auto-miss`.
+
+### Передача хода
+- Промах (`miss`) → ход переходит сопернику.
+- Попадание (`hit`) / потопление (`sunk`) → ход остаётся у стрелка.
+
+### Таймеры
+- **IDLE_TIMEOUT_MS = 20 сек** — на ход. Если игрок не ходит, техпоражение.
+- **RECONNECT_GRACE_MS = 20 сек** — НЕ реализовано пока. При disconnect
+  игра завершается техпоражением сразу (упрощённо).
+
+### Античит
+- Клиент НЕ получает расположение кораблей соперника. Только результат
+  каждого выстрела (hit/miss/sunk).
+- Сервер проверяет: чей ход, координаты в пределах поля, клетка не обстреляна.
+- Валидация присланного `board` от клиента — НЕ реализована пока
+  (заглушка: генерируется случайное поле). Полная валидация + ручная
+  расстановка — в бэклоге.
+
+### UI-элементы (в index.html, внутри gameOverlay)
+- `.game-header` — заголовок + кнопка ✖ выхода.
+- `.game-info` — имя соперника + индикатор хода.
+- `.game-boards` — два поля рядом (на мобилке — друг под другом).
+- `.game-controls` — кнопки «Расставить случайно» / «Готов» + статус.
+- `.game-chat` — мини-чат с логом + полем ввода.
+
+### Файлы
+- **`game-server.js`** — серверная логика (в корне).
+- **`public/game.js`** — клиентская логика (IIFE).
+- **`public/game.css`** — стили игры.
+- **`public/index.html`** — разметка оверлея + плашка gameInviteBar.
+- **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v9.
+- **`public/style.css`** — .private-controls для мобилки (v1.22.6).
+
+### Бэклог по игре
+- 🚧 Ручная расстановка кораблей (клики / drag&drop).
+- 🚧 Полная валидация `board` на сервере.
+- 🚧 Grace-period на reconnect (20 сек на возврат).
+- 🚧 Кнопка «Ещё раз» после победы.
+- 🚧 Улучшенный экран победы/поражения.
+- 🚧 Звуки выстрелов, попаданий, потоплений.
+- 🚧 Анимации попаданий.
 ===== КОНЕЦ ОТЧЁТА =====
