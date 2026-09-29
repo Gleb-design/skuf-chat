@@ -774,6 +774,34 @@ if (gameWaitingCancelBtn) {
         hideGameInviteBar();
     });
 
+// ========================================================
+// RECONNECT (MVP) — обрыв интернета
+// ========================================================
+
+socket.on('game_opponent_disconnected', ({ graceMs }) => {
+    // Соперник отвалился — показываем плашку «ждём»
+    statusMsgEl.textContent = `⚠️ Соперник отвалился. Ждём ${Math.round(graceMs / 1000)} сек...`;
+});
+
+socket.on('game_opponent_reconnected', () => {
+    // Соперник вернулся — убираем плашку
+    statusMsgEl.textContent = '✅ Соперник вернулся!';
+    setTimeout(() => {
+        // Восстанавливаем статус по ходу
+        if (state.turn === 'you') {
+            statusMsgEl.textContent = 'Стреляй по полю врага.';
+        } else {
+            statusMsgEl.textContent = 'Ждём хода соперника...';
+        }
+    }, 1500);
+});
+
+socket.on('game_reconnected', () => {
+    // Мы вернулись в игру (но клиент может ещё не знать о ней)
+    console.log('✅ Мы вернулись в игру');
+    // ⚠️ MVP: оверлей не восстанавливаем — просто игнорируем
+});
+    
     console.log('🚢 Морской бой: клиентский модуль загружен');
 })();
 

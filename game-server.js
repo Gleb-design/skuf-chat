@@ -34,6 +34,9 @@ module.exports = function initGame(io, deps) {
     // Map<socketId, gameId> — быстрый поиск игры по сокету
     const socketToGame = new Map();
 
+    // Map<sessionKey, { game, leaverKey, timer }> — кто ждёт reconnect
+    const pendingReconnects = new Map();
+
     // ========================================================
     // УТИЛИТЫ
     // ========================================================
@@ -330,6 +333,34 @@ module.exports = function initGame(io, deps) {
             });
         });
 
+        // ⚠️ Возврат игрока в игру после обрыва
+socket.on('init_session', ({ sessionKey }) => {
+    if (!sessionKey) return;
+    if (!pendingReconnects.has(sessionKey)) return;
+
+    const { game, leaverKey, timer } = pendingReconnects.get(sessionKey);
+    clearTimeout(timer);
+    pendingReconnects.delete(sessionKey);
+
+    // Обновляем socketId в игре (мог измениться)
+    game[leaverKey].socketId = socket.id;
+    socketToGame.set(socket.id, game.id);
+
+    // Переподключаем к комнате
+    const otherKey = leaverKey === 'player1' ? 'player2' : 'player1';
+    const roomId = `room_${game.player1.socketId}_${game.player2.socketId}`;
+    socket.join(roomId);
+
+    console.log(`✅ Игрок ${leaverKey} вернулся в игру ${game.id}`);
+
+    // Уведомляем обоих
+    io.to(game[otherKey].socketId).emit('game_opponent_reconnected');
+    socket.emit('game_reconnected');
+
+    // ⚠️ TODO: переслать состояние игры (myBoard, enemyBoard, turn)
+    // Для MVP — клиент просто закроет плашку «ждём»
+});
+
         // --- ПРИНЯТЬ ПРИГЛАШЕНИЕ ---
         socket.on('game_accept', ({ gameId } = {}) => {
             const game = games.get(gameId);
@@ -591,22 +622,41 @@ module.exports = function initGame(io, deps) {
 
         // --- DISCONNECT во время игры ---
         socket.on('disconnect', () => {
-            const gameId = socketToGame.get(socket.id);
-            if (!gameId) return;
+    const gameId = socketToGame.get(socket.id);
+    if (!gameId) return;
 
-            const game = games.get(gameId);
-            if (!game || game.phase === 'finished') {
-                socketToGame.delete(socket.id);
-                return;
-            }
+    const game = games.get(gameId);
+    if (!game || game.phase === 'finished') {
+        socketToGame.delete(socket.id);
+        return;
+    }
 
-            const leaverKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
-            const winnerKey = leaverKey === 'player1' ? 'player2' : 'player1';
+    const leaverKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
+    const winnerKey = leaverKey === 'player1' ? 'player2' : 'player1';
+    const leaverSessionKey = game[leaverKey].sessionKey;
 
-            // Техническое поражение (упрощённо — без ожидания reconnect)
-            // TODO (этап 1.2): реализовать grace-период
+    // Не endGame сразу — ждём 20 сек
+    console.log(`⚠️ Игрок ${leaverKey} отвалился. Ждём ${RECONNECT_GRACE_MS / 1000} сек...`);
+
+    // Уведомляем соперника
+    io.to(game[winnerKey].socketId).emit('game_opponent_disconnected', {
+        graceMs: RECONNECT_GRACE_MS,
+    });
+
+    // ⚠️ Таймер через 20 сек
+    const timer = setTimeout(() => {
+        if (pendingReconnects.has(leaverSessionKey)) {
+            pendingReconnects.delete(leaverSessionKey);
             endGame(game, winnerKey, 'disconnect');
-        });
+            console.log(`❌ Игрок ${leaverKey} не вернулся. Техпоражение.`);
+        }
+    }, RECONNECT_GRACE_MS);
+
+    // Запоминаем по sessionKey
+    if (leaverSessionKey) {
+        pendingReconnects.set(leaverSessionKey, { game, leaverKey, timer });
+    }
+});
     });
 
     console.log('🚢 Морской бой: модуль загружен');
