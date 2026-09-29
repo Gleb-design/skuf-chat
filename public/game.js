@@ -7,6 +7,54 @@
     'use strict';
 
     // ========================================================
+    // ЗВУКИ ИГРЫ
+    // ========================================================
+    // Все звуки — короткие mp3 в public/. Громкости подобраны так,
+    // чтобы не перекрывать друг друга.
+    //   shot  — выстрел (частый, тише)
+    //   hit   — попадание (важное)
+    //   miss  — промах (тихий)
+    //   sunk  — потопление (драматичное, громче)
+    //   win   — победа (длиннее, радостное)
+    //   lose  — поражение (длиннее, грустное)
+
+    const SOUNDS = {
+        shot: { file: '/shot.mp3', volume: 0.3 },
+        hit:  { file: '/hit.mp3',  volume: 0.5 },
+        miss: { file: '/miss.mp3', volume: 0.5 },
+        sunk: { file: '/sunk.mp3', volume: 0.6 },
+        win:  { file: '/win.mp3',  volume: 0.5 },
+        lose: { file: '/lose.mp3', volume: 0.5 },
+    };
+
+    // Создаём Audio() один раз (ленивая инициализация)
+    const audioPool = {};
+
+    function getAudio(name) {
+        if (!SOUNDS[name]) return null;
+        if (!audioPool[name]) {
+            const a = new Audio(SOUNDS[name].file);
+            a.volume = SOUNDS[name].volume;
+            a.preload = 'auto';
+            audioPool[name] = a;
+        }
+        return audioPool[name];
+    }
+
+    // Проигрывает звук. Безопасно — если ошибка (файл не найден,
+    // автоплей заблокирован), тихо игнорируем.
+    function playSound(name) {
+        const a = getAudio(name);
+        if (!a) return;
+        try {
+            a.currentTime = 0;
+            a.play().catch(() => {});   // не спамим консоль
+        } catch (err) {
+            // no-op
+        }
+    }
+
+    // ========================================================
     // ЭЛЕМЕНТЫ UI
     // ========================================================
     const overlay = document.getElementById('gameOverlay');
@@ -148,6 +196,9 @@ function handleEnemyCellClick(x, y) {
     if (cell && (cell.classList.contains('hit') || cell.classList.contains('miss'))) {
         return; // уже стреляли
     }
+
+    // Звук выстрела
+    playSound('shot');
 
     // Отправляем выстрел
     socket.emit('game_shot', { gameId: state.gameId, x, y });
@@ -641,6 +692,11 @@ if (gameWaitingCancelBtn) {
         // Рисуем на поле врага
         renderShotResult(enemyBoardEl, x, y, result);
 
+    // Звук результата
+    if (result === 'miss') playSound('miss');
+    else if (result === 'hit') playSound('hit');
+    else if (result === 'sunk') playSound('sunk');
+
         // Обновляем ход
         if (turn) {
             state.turn = turn;
@@ -667,6 +723,11 @@ if (gameWaitingCancelBtn) {
         // Рисуем на своём поле
         renderShotResult(myBoardEl, x, y, result);
 
+            // Звук результата (соперник стрелял по нам)
+    if (result === 'miss') playSound('miss');
+    else if (result === 'hit') playSound('hit');
+    else if (result === 'sunk') playSound('sunk');
+
         // Обновляем ход
         if (turn) {
             state.turn = turn;
@@ -683,24 +744,23 @@ if (gameWaitingCancelBtn) {
     }
     });
 
-socket.on('game_finished', ({ winner, reason }) => {
-        // Останавливаем таймер
-    stopTurnTimer();
-    if (randomBtn) randomBtn.classList.add('hidden');
-    if (readyBtn) readyBtn.classList.add('hidden');
+    socket.on('game_finished', ({ winner, reason }) => {
+        if (randomBtn) randomBtn.classList.add('hidden');
+        if (readyBtn) readyBtn.classList.add('hidden');
 
-    if (winner === 'you') {
-        statusMsgEl.textContent = '🏆 Победа! Скуф-адмирал!';
-    } else {
-        statusMsgEl.textContent = '💀 Поражение... В следующий раз повезёт.';
-    }
+        if (winner === 'you') {
+            statusMsgEl.textContent = '🏆 Победа! Скуф-адмирал!';
+            playSound('win');
+        } else {
+            statusMsgEl.textContent = '💀 Поражение... В следующий раз повезёт.';
+            playSound('lose');
+        }
 
-    // Показываем кнопку «Ещё раз»
-    if (rematchBtn) rematchBtn.classList.remove('hidden');
+        // Показываем кнопку «Ещё раз»
+        if (rematchBtn) rematchBtn.classList.remove('hidden');
 
-    // НЕ закрываем оверлей автоматически — игрок сам решит
-    // (старый setTimeout убираем)
-});
+        // НЕ закрываем оверлей автоматически — игрок сам решит
+    });
 
     // Второй игрок принял — отправитель закрывает любые плашки
     socket.on('game_accepted', ({ gameId }) => {
