@@ -671,14 +671,16 @@ if (gameWaitingCancelBtn) {
         renderMyBoard(myBoardEl, myBoard);
         renderEnemyBoard(enemyBoardEl, enemyBoard);  // ← новая функция с кликами
 
-        // Показываем чей ход
-        if (turn === 'you') {
-            turnIndicatorEl.textContent = '🎯 Твой ход!';
-            statusMsgEl.textContent = 'Стреляй по полю врага.';
-        } else {
-            turnIndicatorEl.textContent = '⌛ Ход соперника';
-            statusMsgEl.textContent = 'Ждём хода соперника...';
-        }
+    // Показываем чей ход + пульс
+    if (turn === 'you') {
+        turnIndicatorEl.textContent = '🎯 Твой ход!';
+        turnIndicatorEl.classList.add('turn-you');   // ← НОВАЯ СТРОКА
+        statusMsgEl.textContent = 'Стреляй по полю врага.';
+    } else {
+        turnIndicatorEl.textContent = '⌛ Ход соперника';
+        turnIndicatorEl.classList.remove('turn-you');
+        statusMsgEl.textContent = 'Ждём хода соперника...';
+    }
             // Запускаем таймер хода
     startTurnTimer();
     });
@@ -702,6 +704,7 @@ if (gameWaitingCancelBtn) {
             state.turn = turn;
             if (turn === 'you') {
                 turnIndicatorEl.textContent = '🎯 Твой ход!';
+                turnIndicatorEl.classList.add('turn-you');
                 if (result === 'hit' || result === 'sunk') {
                     statusMsgEl.textContent = result === 'sunk' ? '☠️ Потопил! Стреляй ещё.' : '🔥 Попал! Стреляй ещё.';
                 } else {
@@ -709,6 +712,7 @@ if (gameWaitingCancelBtn) {
                 }
             } else {
                 turnIndicatorEl.textContent = '⌛ Ход соперника';
+                turnIndicatorEl.classList.remove('turn-you');
                 statusMsgEl.textContent = 'Ждём хода соперника...';
             }
         }
@@ -733,9 +737,11 @@ if (gameWaitingCancelBtn) {
             state.turn = turn;
             if (turn === 'you') {
                 turnIndicatorEl.textContent = '🎯 Твой ход!';
+                turnIndicatorEl.classList.add('turn-you');
                 statusMsgEl.textContent = 'Твой ход! Стреляй.';
             } else {
                 turnIndicatorEl.textContent = '⌛ Ход соперника';
+                turnIndicatorEl.classList.remove('turn-you');
             }
         }
             // Перезапускаем таймер — соперник сходил, теперь наш ход или его
@@ -747,6 +753,7 @@ if (gameWaitingCancelBtn) {
     socket.on('game_finished', ({ winner, reason }) => {
         if (randomBtn) randomBtn.classList.add('hidden');
         if (readyBtn) readyBtn.classList.add('hidden');
+        if (turnIndicatorEl) turnIndicatorEl.classList.remove('turn-you');
 
         if (winner === 'you') {
             statusMsgEl.textContent = '🏆 Победа! Скуф-адмирал!';

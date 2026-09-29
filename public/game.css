@@ -95,6 +95,16 @@
     color: #ffb74d;
 }
 
+/* Пульс когда «Твой ход!» */
+#gameTurnIndicator.turn-you {
+    animation: turnPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes turnPulse {
+    0%, 100% { transform: scale(1);    color: #ffb74d; }
+    50%      { transform: scale(1.08); color: #ffd77a; text-shadow: 0 0 8px rgba(255, 183, 77, 0.5); }
+}
+
 /* --- Контейнер двух полей --- */
 .game-boards {
     display: flex;
@@ -267,12 +277,19 @@
     }
 }
 
+/* ======================================================= */
+/* КЛЕТКИ ИГРЫ + АНИМАЦИИ (v1.22.12)                       */
+/* ======================================================= */
+
 .game-cell.ship {
     background: #6a8a4a;   /* зелёный — твой корабль */
 }
+
+/* --- Попадание: вспышка + 🔥 --- */
 .game-cell.hit {
-    background: #d94a2a;   /* красный — попадание */
+    background: #d94a2a;
     position: relative;
+    animation: hitFlash 0.35s ease-out;
 }
 .game-cell.hit::after {
     content: '🔥';
@@ -282,26 +299,54 @@
     align-items: center;
     justify-content: center;
     font-size: 14px;
+    animation: hitPop 0.35s ease-out;
 }
+
+@keyframes hitFlash {
+    0%   { background: #ffffff; transform: scale(1.25); }
+    40%  { background: #ff6a3a; transform: scale(1.1); }
+    100% { background: #d94a2a; transform: scale(1); }
+}
+
+@keyframes hitPop {
+    0%   { transform: scale(0);   opacity: 0; }
+    50%  { transform: scale(1.4); opacity: 1; }
+    100% { transform: scale(1);   opacity: 1; }
+}
+
+/* --- Промах: капля падает --- */
 .game-cell.miss {
-    background: #2a3a4a;   /* синий — промах */
+    background: #2a3a4a;
     position: relative;
+    animation: missRipple 0.4s ease-out;
 }
 .game-cell.miss::after {
-    content: '•';
+    content: '💧';
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6a8ab0;
-    font-size: 18px;
+    font-size: 16px;
+    animation: missDrop 0.4s ease-out;
 }
 
-/* --- Потопленный корабль (на поле врага) --- */
+@keyframes missRipple {
+    0%   { background: #4a6a8a; }
+    100% { background: #2a3a4a; }
+}
+
+@keyframes missDrop {
+    0%   { transform: translateY(-30px) scale(0.5); opacity: 0; }
+    60%  { transform: translateY(0)     scale(1.2); opacity: 1; }
+    100% { transform: translateY(0)     scale(1);   opacity: 1; }
+}
+
+/* --- Потопление: тряска + ☠️ с bounce --- */
 .game-cell.sunk {
     background: #8a2a1a;
     position: relative;
+    animation: sunkShake 0.5s ease-out;
 }
 .game-cell.sunk::after {
     content: '☠️';
@@ -311,6 +356,23 @@
     align-items: center;
     justify-content: center;
     font-size: 14px;
+    animation: sunkBounce 0.5s ease-out;
+}
+
+@keyframes sunkShake {
+    0%, 100% { transform: translate(0, 0); }
+    15%      { transform: translate(-2px, 1px); }
+    30%      { transform: translate(2px, -1px); }
+    45%      { transform: translate(-2px, -1px); }
+    60%      { transform: translate(2px, 1px); }
+    75%      { transform: translate(-1px, 0); }
+}
+
+@keyframes sunkBounce {
+    0%   { transform: scale(0)   rotate(-30deg); opacity: 0; }
+    50%  { transform: scale(1.5) rotate(15deg);  opacity: 1; }
+    75%  { transform: scale(0.9) rotate(-5deg);  opacity: 1; }
+    100% { transform: scale(1)   rotate(0deg);   opacity: 1; }
 }
 
 /* --- Активное поле врага (когда наш ход) --- */
@@ -362,6 +424,26 @@
 .game-chat-msg {
     word-break: break-word;
     overflow-wrap: anywhere;
+}
+
+/* Свои — въезжают справа */
+.game-chat-msg.me {
+    animation: chatSlideRight 0.25s ease-out;
+}
+
+/* Чужие — въезжают слева */
+.game-chat-msg.opponent {
+    animation: chatSlideLeft 0.25s ease-out;
+}
+
+@keyframes chatSlideRight {
+    0%   { transform: translateX(20px); opacity: 0; }
+    100% { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes chatSlideLeft {
+    0%   { transform: translateX(-20px); opacity: 0; }
+    100% { transform: translateX(0);     opacity: 1; }
 }
 .game-chat-msg strong {
     font-weight: 600;
