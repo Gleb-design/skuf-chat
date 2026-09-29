@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.22.8
+Версия: v1.22.12
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.22.8 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.22.12 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.22.8
+- Стабильная версия: v1.22.12
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -71,7 +71,15 @@
 - beer.mp3 (чужое сообщение) — volume 0.1
 - ambient.mp3 (фоновый звук гаража) — volume 0.08, loop=true, по умолчанию ВЫКЛ.
   Подробности — в разделе 13 → «Фоновый звук гаража (v1.15.0)»
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v10)
+- Звуки Морского боя (v1.22.11) — 6 файлов в public/:
+  • shot.mp3 (выстрел) — volume 0.3
+  • hit.mp3 (попадание) — volume 0.5
+  • miss.mp3 (промах) — volume 0.5
+  • sunk.mp3 (потопление) — volume 0.6
+  • win.mp3 (победа) — volume 0.5 (подольше)
+  • lose.mp3 (поражение) — volume 0.5 (подольше)
+  Подробности — в разделе 20 → «Звуки».
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v14)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -96,7 +104,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v10' (актуально с v1.22.8)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v14' (актуально с v1.22.12)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -146,7 +154,7 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v10' (актуально с v1.22.8)
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v14' (актуально с v1.22.12)
 ⚠️ ОТКАТАНО в v1.16.1...
 Оставлено как справка на будущее.
 ### Перевода сообщений / GlobeSkuf (v1.17.0)
@@ -227,7 +235,17 @@ skuf-chat/
 │   ├── cat.svg            ← новый (v1.7.0)
 │   ├── click.mp3
 │   ├── beer.mp3
-│   └── ambient.mp3       ← новый (v1.15.0)
+│   ├── ambient.mp3        ← новый (v1.15.0)
+│   ├── shot.mp3           ← новый (v1.22.11) — звук выстрела
+│   ├── hit.mp3            ← новый (v1.22.11) — звук попадания
+│   ├── miss.mp3           ← новый (v1.22.11) — звук промаха
+│   ├── sunk.mp3           ← новый (v1.22.11) — звук потопления
+│   ├── win.mp3            ← новый (v1.22.11) — звук победы
+│   ├── lose.mp3           ← новый (v1.22.11) — звук поражения
+│   ├── robots.txt         ← новый (v1.18.0)
+│   ├── sitemap.xml        ← новый (v1.18.0)
+│   ├── googleacf39dfc2c55d662.html  ← новый (v1.18.0) — подтверждение Google
+│   └── yandex_75643f269.html        ← новый — подтверждение Яндекса
 ├── game-server.js         ← новый (v1.22.0) — серверная логика игры
 ├── server.js
 ├── package.json
@@ -540,9 +558,55 @@ skuf-chat/
   • CACHE_NAME → skuf-chat-v10 (сброс кэша стилей).
   • Файлы: public/index.html, public/game.css, public/game.js,
     public/style.css, public/sw.js.
+- v1.22.9 — таймер хода + фикс sw.js
+  • Таймер обратного отсчёта на ход: 60 сек. Показывается над полем
+    (#gameTimer), жёлтая плашка. Красный пульс на последних 10 сек.
+  • Сбрасывается при каждом выстреле (game_shot_result / game_opponent_shot).
+  • Скрывается при game_finished / closeOverlay.
+  • game.js: IDLE_TIMEOUT_SEC = 60 (должно совпадать с IDLE_TIMEOUT_MS
+    на сервере). Функции startTurnTimer, stopTurnTimer, updateTimerDisplay.
+  • Фикс sw.js: обработчик fetch теперь фильтрует запросы —
+    не GET, чужой origin, /socket.io/ пропускаются. .catch() возвращает
+    пустой Response вместо Uncaught TypeError.
+  • CACHE_NAME → skuf-chat-v11.
+  • Файлы: public/index.html, public/game.css, public/game.js, public/sw.js.
+- v1.22.10 — фикс кнопки реванша
+  • При нажатии «🔄 Ещё раз» у соперника показывается плашка приглашения
+    (оверлей закрывается, gameInviteBar появляется внизу).
+  • rematchBtn скрывается при game_placing и game_battle — раньше
+    могла «висеть» с прошлой игры.
+  • CACHE_NAME → skuf-chat-v12.
+  • Файлы: public/game.js, public/sw.js.
+- v1.22.11 — звуки Морского боя
+  • 6 новых mp3 в public/: shot, hit, miss, sunk, win, lose.
+  • В game.js: SOUNDS-объект с громкостями, audioPool (ленивая инициализация),
+    playSound(name). Вызовы в handleEnemyCellClick (shot),
+    game_shot_result (hit/miss/sunk), game_opponent_shot (hit/miss/sunk),
+    game_finished (win/lose).
+  • Чужие выстрелы НЕ звучат как shot — только результат (чтобы не было
+    дубля). Звук «выстрел» — только у стреляющего.
+  • CACHE_NAME → skuf-chat-v13. 6 mp3 добавлены в assets sw.js.
+  • Файлы: public/game.js, public/sw.js, public/shot.mp3, public/hit.mp3,
+    public/miss.mp3, public/sunk.mp3, public/win.mp3, public/lose.mp3.
+- v1.22.12 — анимации Морского боя
+  • CSS-анимации в game.css:
+    - .game-cell.hit → hitFlash (белая вспышка → красный, scale) +
+      hitPop для 🔥 (scale 0 → 1.4 → 1).
+    - .game-cell.miss → missRipple (синий → тёмно-синий) +
+      missDrop для 💧 (падает сверху).
+    - .game-cell.sunk → sunkShake (тряска клеток) +
+      sunkBounce для ☠️ (появление с bounce + rotate).
+    - #gameTurnIndicator.turn-you → turnPulse (пульс «Твой ход!»,
+      цвет + text-shadow).
+    - .game-chat-msg.me / .opponent → chatSlideRight / chatSlideLeft
+      (сообщения въезжают сбоку).
+  • В game.js: класс turn-you добавляется/снимается в game_battle,
+    game_shot_result, game_opponent_shot; снимается в game_finished.
+  • CACHE_NAME → skuf-chat-v14.
+  • Файлы: public/game.css, public/game.js, public/sw.js.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
-### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.8
+### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.12
 - ✅ Серверная логика (v1.22.0)
 - ✅ UI-каркас (v1.22.1)
 - ✅ Приглашение (v1.22.2)
@@ -553,10 +617,12 @@ skuf-chat/
 - ✅ Таймаут 60с (v1.22.7)
 - ✅ Кнопка «Ещё раз» (v1.22.8)
 - ✅ Плашка ожидания ответа (v1.22.8)
+- ✅ Таймер хода (v1.22.9)
+- ✅ Звуки выстрел/попадание/промах/потопление/победа/поражение (v1.22.11)
+- ✅ Анимации hit/miss/sunk/turn/chat (v1.22.12)
 - ⏳ Ручная расстановка кораблей (клики / drag&drop) — в бэклоге
-- ⏳ Звуки выстрелов/попаданий — в бэклоге
-- ⏳ Анимации попаданий — в бэклоге
 - ⏳ Grace-period reconnect (20 сек на возврат) — константа есть, не используется
+- ⏳ Улучшенный экран победы (счёт, статистика) — в бэклоге
 
 
 ### МОНЕТИЗАЦИЯ (обсуждено, к реализации)
@@ -682,6 +748,7 @@ Render Key Value (Redis) — free tier, подходит.
   цитаты reply (.msg-reply-quote), кнопки действий (.msg-actions),
   плашка приглашений (.private-invite-bar)
 - public/sw.js — service worker
+- public/shot.mp3, hit.mp3, miss.mp3, sunk.mp3, win.mp3, lose.mp3 — звуки игры
 - game-server.js — серверная логика Морского боя (initGame)
 - public/game.js — клиентская логика Морского боя
 - public/game.css — стили Морского боя (оверлей, поля, чат)
@@ -723,7 +790,7 @@ Render Key Value (Redis) — free tier, подходит.
 - На десктопе .msg-actions работает как раньше (hover)
 - Кнопки приглашения в приват на мобилке (≤480px): min-height: 44px
 
-## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.8)
+## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.12)
 
 ### Архитектура
 - **Сервер:** модуль `game-server.js` (в корне). Экспортирует
@@ -803,7 +870,7 @@ Render Key Value (Redis) — free tier, подходит.
 - **`public/game.js`** — клиентская логика (IIFE).
 - **`public/game.css`** — стили игры.
 - **`public/index.html`** — разметка оверлея + плашка gameInviteBar.
-- **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v9.
+- **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v14.
 - **`public/style.css`** — .private-controls для мобилки (v1.22.6).
 
 ### Что добавлено в v1.22.7-v1.22.8
@@ -817,12 +884,18 @@ Render Key Value (Redis) — free tier, подходит.
   Не закрывает оверлей автоматически.
 - **Фикс кнопок в плашках** — усилены селекторы, чтобы
   .chat-input-area button не перебивал padding.
+### Что добавлено в v1.22.9-v1.22.12
+- **Таймер хода** (#gameTimer): 60 сек, тикает вниз, красный пульс
+  на последних 10 сек. Сброс при каждом выстреле.
+- **Звуки** (v1.22.11): SOUNDS-объект в game.js, playSound(name).
+  6 mp3: shot/hit/miss/sunk/win/lose. Громкости 0.3-0.6.
+  Чужие выстрелы — только результат (без shot).
+- **Анимации** (v1.22.12): hitFlash/hitPop, missRipple/missDrop,
+  sunkShake/sunkBounce, turnPulse (.turn-you), chatSlideRight/Left.
 
 ### Бэклог по игре
 - 🚧 Ручная расстановка кораблей (клики / drag&drop).
 - 🚧 Полная валидация `board` на сервере.
 - 🚧 Grace-period на reconnect (20 сек на возврат).
-- 🚧 Улучшенный экран победы/поражения.
-- 🚧 Звуки выстрелов, попаданий, потоплений.
-- 🚧 Анимации попаданий.
+- 🚧 Улучшенный экран победы/поражения (счёт, статистика).
 ===== КОНЕЦ ОТЧЁТА =====
