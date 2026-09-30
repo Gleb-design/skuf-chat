@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.22.14
+Версия: v1.23.0
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.22.14 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.23.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.22.14
+- Стабильная версия: v1.23.0
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -222,6 +222,8 @@
 
 ## 14. СТРУКТУРА ПРОЕКТА
 skuf-chat/
+├── games/                 ← новый (v1.23.0) — модули игр
+│   └── battleship.js      ← логика Морского боя
 ├── public/
 │   ├── client.js
 │   ├── game.js            ← новый (v1.22.0) — клиентская логика игры
@@ -246,7 +248,7 @@ skuf-chat/
 │   ├── sitemap.xml        ← новый (v1.18.0)
 │   ├── googleacf39dfc2c55d662.html  ← новый (v1.18.0) — подтверждение Google
 │   └── yandex_75643f269.html        ← новый — подтверждение Яндекса
-├── game-server.js         ← новый (v1.22.0) — серверная логика игры
+├── game-server.js         ← универсальный РОУТЕР игр (v1.23.0)
 ├── server.js
 ├── package.json
 ├── package-lock.json
@@ -621,6 +623,34 @@ skuf-chat/
     game_opponent_disconnected / game_opponent_reconnected / game_reconnected).
   • CACHE_NAME → skuf-chat-v15.
   • Файлы: game-server.js, public/game.js, public/sw.js.
+- v1.23.0 — РЕФАКТОР: модульная архитектура игр
+  • Создана папка games/ — модули игр с общим контрактом.
+  • games/battleship.js — логика Морского боя (поле, корабли,
+    выстрелы, проверка победы, сериализация).
+  • game-server.js → УНИВЕРСАЛЬНЫЙ РОУТЕР:
+    - знает ПРО ВСЕ игры (GAMES = { battleship: require(...) })
+    - не знает ПРАВИЛ игр
+    - создаёт игру через module.createInitialState(p1, p2)
+    - вызывает module.handleAction(game, playerKey, action, payload)
+    - рассылает события от модуля через dispatchEvents()
+    - endGame вызывается по result.finished из модуля
+  • Контракт модуля игры:
+    - id, name, minPlayers, maxPlayers
+    - createInitialState(player1, player2) → состояние
+    - handleAction(game, playerKey, action, payload) →
+      { ok, events: [{ to, event, data }], finished?, winner?, reason? }
+    - isFinished(game) → { finished, winner, reason }
+    - serializeFor(game, playerKey) → данные для клиента
+  • События адресуются через to:
+    - 'self' — тому, кто сделал действие
+    - 'opponent' — сопернику
+    - 'both' — обоим
+    - 'player1' / 'player2' — конкретному игроку
+  • Роутер хранит: game.module, game.state (от модуля), game.phase (синхронизируется).
+  • Таймеры (idle, reconnect) — в роутере, не в модуле.
+  • Мини-чат, приглашения, disconnect — в роутере.
+  • Фикс: gameId добавлен в payload game_battle (был утерян при рефакторе).
+  • Файлы: games/battleship.js (новый), game-server.js (переписан).
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
@@ -816,7 +846,8 @@ Render Key Value (Redis) — free tier, подходит.
   плашка приглашений (.private-invite-bar)
 - public/sw.js — service worker
 - public/shot.mp3, hit.mp3, miss.mp3, sunk.mp3, win.mp3, lose.mp3 — звуки игры
-- game-server.js — серверная логика Морского боя (initGame)
+- game-server.js — универсальный роутер игр (initGame)
+- games/battleship.js — модуль Морского боя (createInitialState, handleAction)
 - public/game.js — клиентская логика Морского боя
 - public/game.css — стили Морского боя (оверлей, поля, чат)
 
@@ -857,13 +888,17 @@ Render Key Value (Redis) — free tier, подходит.
 - На десктопе .msg-actions работает как раньше (hover)
 - Кнопки приглашения в приват на мобилке (≤480px): min-height: 44px
 
-## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.13)
+## 20. МОРСКОЙ БОЙ (v1.22.0–v1.23.0)
 
-### Архитектура
-- **Сервер:** модуль `game-server.js` (в корне). Экспортирует
-  `initGame(io, deps)`, где `deps = { sessionsByKey, findSocketBySessionKey }`.
-  Вызывается из server.js ОДИН раз — модуль сам подписывается
-  на `io.on('connection')`.
+### Архитектура (v1.23.0 — после рефактора)
+- **Роутер:** `game-server.js` — универсальный (см. раздел 21).
+- **Модуль игры:** `games/battleship.js` — логика Морского боя.
+- **Контракт:** id, name, minPlayers, maxPlayers, createInitialState,
+  handleAction, isFinished, serializeFor.
+- **События:** модуль возвращает, роутер рассылает по to:
+  self/opponent/both/player1/player2.
+- **Роутер хранит:** game.module, game.state, game.phase.
+- **Таймеры, чат, приглашения, disconnect** — в роутере.
 - **Клиент:** `public/game.js` (IIFE, использует глобальный `socket`
   из client.js). Загружается ПОСЛЕ client.js.
 - **Хранилище игр:** RAM, `Map<gameId, GameState>` + `Map<socketId, gameId>`.
@@ -977,4 +1012,80 @@ Render Key Value (Redis) — free tier, подходит.
 - 🚧 Полная валидация `board` на сервере.
 - 🚧 Восстановление оверлея после F5 (game_reconnect с полным состоянием).
 - 🚧 Улучшенный экран победы/поражения (счёт, статистика).
+## 21. МОДУЛЬНАЯ АРХИТЕКТУРА ИГР (v1.23.0)
+
+### Зачем
+Сейчас есть Морской бой. Планируются: Домино, Точки, Шашки.
+Без модульной архитектуры game-server.js превратится в кашу
+(switch по типу игры в каждом socket.on).
+
+### Как устроено
+- game-server.js — универсальный роутер:
+  • хранит игры (games Map, socketToGame)
+  • приглашения, accept/decline, disconnect, reconnect
+  • idle timer (60с), мини-чат
+  • вызывает методы модуля игры и рассылает события
+  • НЕ знает правил игр
+
+- games/<game>.js — модуль конкретной игры:
+  • чистые функции (без socket.io, без io.emit)
+  • возвращает события — роутер их сам рассылает
+  • знает только про game.state и playerKey
+
+### Контракт модуля
+module.exports = {
+    id: 'battleship',                     // уникальный ID
+    name: '🚢 Морской бой',                // отображаемое имя
+    minPlayers: 2,
+    maxPlayers: 2,
+
+    createInitialState: (player1, player2) => ({...}),
+    handleAction: (game, playerKey, action, payload) => ({
+        ok: true,
+        events: [
+            { to: 'self',     event: 'game_board_accepted', data: {...} },
+            { to: 'opponent', event: 'game_opponent_shot',  data: {...} },
+        ],
+        finished: false,        // опционально
+        winner: null,           // если finished
+        reason: null,           // если finished
+    }),
+    isFinished: (game) => ({ finished, winner, reason }),
+    serializeFor: (game, playerKey) => ({...}),
+};
+
+### Реестр игр в game-server.js
+const GAMES = {
+    battleship: require('./games/battleship'),
+    // domino: require('./games/domino'),  (в будущем)
+    // dots:   require('./games/dots'),    (в будущем)
+};
+
+### События от модуля — адресация
+| to          | Кому                            |
+|-------------|----------------------------------|
+| 'self'      | тому, кто сделал действие        |
+| 'opponent'  | сопернику                        |
+| 'both'      | обоим                            |
+| 'player1'   | конкретно player1                |
+| 'player2'   | конкретно player2                |
+
+Роутер преобразует 'self'/'opponent' в socketId через game.player1/player2.
+
+### Что осталось в роутере (не в модуле)
+- Создание игры (game_invite)
+- Приглашения (game_accept, game_decline)
+- Мини-чат (game_chat) — общий для всех игр
+- Disconnect / reconnect grace (20 сек)
+- Idle timer (60 сек)
+- Endgame (game_finished)
+
+### Как добавить новую игру
+1. Создать games/<game>.js с контрактом выше.
+2. Добавить в GAMES в game-server.js.
+3. Создать клиентский UI (отдельно — public/game-<game>.js
+   или универсальный).
+
+⚠️ Клиент сейчас — только под Морской бой. Для новых игр нужен
+новый UI. Универсальный клиент — задача на будущее (когда 2+ игр).
 ===== КОНЕЦ ОТЧЁТА =====
