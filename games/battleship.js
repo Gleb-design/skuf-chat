@@ -242,6 +242,7 @@ module.exports = {
                 state.turn = 'player1';
 
                 const payload1 = {
+                    gameId: game.id,
                     turn: 'you',
                     youAre: 'player1',
                     myBoard: serializeMyBoard(state.board1),
@@ -249,6 +250,7 @@ module.exports = {
                     opponentName: game.player2.username,
                 };
                 const payload2 = {
+                    gameId: game.id,
                     turn: 'opponent',
                     youAre: 'player2',
                     myBoard: serializeMyBoard(state.board2),

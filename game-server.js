@@ -1,9 +1,16 @@
 // ========================================================
-// game.js — серверная логика Морского боя
+// game-server.js — универсальный роутер игр
 // ========================================================
-// Модуль самодостаточен. Экспортирует initGame(io, deps),
-// которая подписывается на io.on('connection') и регистрирует
-// свои socket-события (с префиксом game_).
+// Вызывается из server.js через initGame(io, deps).
+// Сам подписывается на io.on('connection') и регистрирует
+// игровые события (с префиксом game_).
+//
+// Архитектура:
+//   - Роутер знает ПРО ВСЕ игры (GAMES), но не знает ИХ ПРАВИЛ.
+//   - Каждая игра — модуль (games/*.js) с контрактом:
+//     id, name, minPlayers, maxPlayers, createInitialState,
+//     handleAction, isFinished, serializeFor.
+//   - Модуль возвращает события — роутер их рассылает.
 //
 // deps:
 //   - sessionsByKey: Map<sessionKey, socket> — есть в server.js
@@ -12,16 +19,20 @@
 // Все игры хранятся в RAM (Map). Улетают при рестарте Render.
 // ========================================================
 
+// ========================================================
+// ИМПОРТ МОДУЛЕЙ ИГР
+// ========================================================
+// Пока одна игра (battleship). Меню выбора — в будущем.
+const GAMES = {
+    battleship: require('./games/battleship'),
+};
+
 module.exports = function initGame(io, deps) {
     const { sessionsByKey, findSocketBySessionKey } = deps;
 
     // ========================================================
     // КОНСТАНТЫ
     // ========================================================
-    const BOARD_SIZE = 10;
-    // Классический набор: 1×4, 2×3, 3×2, 4×1
-    const SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
-
     const IDLE_TIMEOUT_MS = 60 * 1000;      // 60 сек на ход
     const RECONNECT_GRACE_MS = 20 * 1000;   // 20 сек на возврат после отвала
 
@@ -38,175 +49,13 @@ module.exports = function initGame(io, deps) {
     const pendingReconnects = new Map();
 
     // ========================================================
-    // УТИЛИТЫ
+    // УТИЛИТЫ РОУТЕРА
     // ========================================================
 
     // Генерирует уникальный gameId
     function generateGameId() {
         return `game_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
-
-    // Проверяет, можно ли поставить корабль в клетку (x, y) длиной size
-    // horizontal: true — горизонтально, false — вертикально
-    // Проверяет: границы поля + все клетки свободны + не касается соседних кораблей (включая диагонали)
-    function canPlaceShip(board, x, y, size, horizontal) {
-        // Границы
-        if (horizontal) {
-            if (x + size > BOARD_SIZE || y >= BOARD_SIZE) return false;
-        } else {
-            if (y + size > BOARD_SIZE || x >= BOARD_SIZE) return false;
-        }
-
-        // Проверяем все клетки корабля + вокруг него (квадрат 3×3 вокруг каждой клетки)
-        for (let i = 0; i < size; i++) {
-            const cx = horizontal ? x + i : x;
-            const cy = horizontal ? y : y + i;
-
-            // Проверяем 3×3 вокруг клетки (cx, cy)
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const nx = cx + dx;
-                    const ny = cy + dy;
-                    if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE) continue;
-                    if (board[ny][nx] !== null) return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    // Ставит корабль на поле. Возвращает массив клеток корабля.
-    function placeShip(board, x, y, size, horizontal) {
-        const cells = [];
-        for (let i = 0; i < size; i++) {
-            const cx = horizontal ? x + i : x;
-            const cy = horizontal ? y : y + i;
-            board[cy][cx] = {
-                ship: true,
-                size: size,
-                hit: false,
-                // Уникальный id корабля, чтобы проверять потопление
-                shipId: null // проставим ниже
-            };
-            cells.push({ x: cx, y: cy });
-        }
-        // Присваиваем общий shipId (используем координаты первой клетки)
-        const shipId = `ship_${cells[0].x}_${cells[0].y}`;
-        for (const c of cells) {
-            board[c.y][c.x].shipId = shipId;
-        }
-        return cells;
-    }
-
-    // Генерирует случайное поле
-    function generateRandomBoard() {
-        const board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
-
-        for (const size of SHIPS) {
-            let placed = false;
-            let attempts = 0;
-            while (!placed && attempts < 500) {
-                const horizontal = Math.random() < 0.5;
-                const x = Math.floor(Math.random() * BOARD_SIZE);
-                const y = Math.floor(Math.random() * BOARD_SIZE);
-
-                if (canPlaceShip(board, x, y, size, horizontal)) {
-                    placeShip(board, x, y, size, horizontal);
-                    placed = true;
-                }
-                attempts++;
-            }
-            if (!placed) {
-                // Не удалось — начинаем заново (редко)
-                return generateRandomBoard();
-            }
-        }
-
-        return board;
-    }
-
-    // Проверяет, потоплен ли корабль, в который попали
-    // Возвращает { sunk: true/false, shipCells: [...] }
-    function checkShipSunk(board, x, y) {
-        const cell = board[y][x];
-        if (!cell || !cell.ship) return { sunk: false, shipCells: [] };
-
-        const shipId = cell.shipId;
-        const shipCells = [];
-
-        // Собираем все клетки этого корабля
-        for (let cy = 0; cy < BOARD_SIZE; cy++) {
-            for (let cx = 0; cx < BOARD_SIZE; cx++) {
-                if (board[cy][cx] && board[cy][cx].shipId === shipId) {
-                    shipCells.push({ x: cx, y: cy, hit: board[cy][cx].hit });
-                }
-            }
-        }
-
-        // Если все клетки корабля ранены — потоплен
-        const sunk = shipCells.every((c) => c.hit === true);
-        return { sunk, shipCells };
-    }
-
-    // Проверяет, все ли корабли потоплены
-    function isAllSunk(board) {
-        for (let y = 0; y < BOARD_SIZE; y++) {
-            for (let x = 0; x < BOARD_SIZE; x++) {
-                const cell = board[y][x];
-                if (cell && cell.ship && !cell.hit) return false;
-            }
-        }
-        return true;
-    }
-
-    // Помечает клетки вокруг потопленного корабля как «auto-miss»
-    function markAroundSunk(board, shipCells) {
-        for (const cell of shipCells) {
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const nx = cell.x + dx;
-                    const ny = cell.y + dy;
-                    if (nx < 0 || nx >= BOARD_SIZE || ny < 0 || ny >= BOARD_SIZE) continue;
-                    if (board[ny][nx] === null) {
-                        board[ny][nx] = { miss: true, auto: true };
-                    }
-                }
-            }
-        }
-    }
-
-    // Сериализация поля для клиента: клиент НЕ должен видеть корабли врага
-    // myBoard: полная инфа (корабли + попадания + промахи + auto-miss)
-    // enemyBoard: только попадания/промахи/auto-miss (без ship=true)
-    function serializeMyBoard(board) {
-        return board.map((row) =>
-            row.map((cell) => {
-                if (cell === null) return null;
-                if (cell.miss) return { miss: true };
-                if (cell.ship) {
-                    return { ship: true, hit: cell.hit };
-                }
-                return null;
-            })
-        );
-    }
-
-    function serializeEnemyBoard(board) {
-        return board.map((row) =>
-            row.map((cell) => {
-                if (cell === null) return null;
-                if (cell.miss) return { miss: true };
-                if (cell.ship && cell.hit) return { hit: true };
-                // НЕ показываем ship=true, если не ранена
-                return null;
-            })
-        );
-    }
-
-    // ========================================================
-    // ИГРОВЫЕ ФУНКЦИИ
-    // ========================================================
 
     // Находит партнёра игрока в его комнате привата
     function findPartnerSocket(socket) {
@@ -220,6 +69,33 @@ module.exports = function initGame(io, deps) {
             }
         }
         return null;
+    }
+
+    // Рассылает события от модуля игры
+    // events: [{ to: 'self' | 'opponent' | 'both' | 'player1' | 'player2', event, data }]
+    function dispatchEvents(game, actingPlayerKey, events) {
+        if (!events || !events.length) return;
+        const opponentKey = actingPlayerKey === 'player1' ? 'player2' : 'player1';
+
+        for (const ev of events) {
+            if (!ev || !ev.event) continue;
+
+            if (ev.to === 'both') {
+                io.to(game.player1.socketId).emit(ev.event, ev.data);
+                io.to(game.player2.socketId).emit(ev.event, ev.data);
+                continue;
+            }
+
+            let targetKey = null;
+            if (ev.to === 'self') targetKey = actingPlayerKey;
+            else if (ev.to === 'opponent') targetKey = opponentKey;
+            else if (ev.to === 'player1') targetKey = 'player1';
+            else if (ev.to === 'player2') targetKey = 'player2';
+
+            if (targetKey && game[targetKey]) {
+                io.to(game[targetKey].socketId).emit(ev.event, ev.data);
+            }
+        }
     }
 
     // Завершает игру
@@ -244,21 +120,25 @@ module.exports = function initGame(io, deps) {
                 reason: reason, // 'win' | 'idle' | 'disconnect' | 'leave'
             });
 
-            // Чистим маппинг сокета
             socketToGame.delete(p.socketId);
         }
 
-        // Оставляем игру в Map на 1 минуту (для истории), потом чистим
         setTimeout(() => games.delete(game.id), 60 * 1000);
     }
 
-    // Сбрасывает таймер бездействия
+    // Сбрасывает таймер бездействия (60 сек на ход)
     function resetIdleTimer(game) {
         if (game.idleTimer) clearTimeout(game.idleTimer);
 
         game.idleTimer = setTimeout(() => {
-            // Текущий ход — проигрыш
-            const loserKey = game.turn;
+            // Определяем, чей ход НЕ был сделан
+            // ⚠️ Для этого нужен доступ к состоянию игры — берём из game.state.turn
+            const state = game.state;
+            let loserKey = state.turn;   // 'player1' | 'player2'
+            if (!loserKey) {
+                // fallback: если state.turn не установлен — считаем player1
+                loserKey = 'player1';
+            }
             const winnerKey = loserKey === 'player1' ? 'player2' : 'player1';
             endGame(game, winnerKey, 'idle');
         }, IDLE_TIMEOUT_MS);
@@ -271,7 +151,6 @@ module.exports = function initGame(io, deps) {
 
         // --- ПРИГЛАШЕНИЕ В ИГРУ (из привата 1-на-1) ---
         socket.on('game_invite', () => {
-            // Проверки
             if (!socket.privateRoom) {
                 socket.emit('game_error', { reason: 'not_in_private' });
                 return;
@@ -291,26 +170,35 @@ module.exports = function initGame(io, deps) {
                 return;
             }
 
-            // Создаём игру
+            // ⚠️ ХАРДКОД: пока игра всегда battleship.
+            // Меню выбора игр — в будущем (клиент пришлёт gameType).
+            const gameModule = GAMES.battleship;
+            if (!gameModule) {
+                socket.emit('game_error', { reason: 'unknown_game' });
+                return;
+            }
+
             const gameId = generateGameId();
+
+            const player1 = {
+                socketId: socket.id,
+                username: socket.username,
+                sessionKey: socket.sessionKey || null,
+            };
+            const player2 = {
+                socketId: partner.id,
+                username: partner.username,
+                sessionKey: partner.sessionKey || null,
+            };
+
             const game = {
                 id: gameId,
-                player1: {
-                    socketId: socket.id,
-                    username: socket.username,
-                    sessionKey: socket.sessionKey || null,
-                    board: null,
-                    ready: false,
-                },
-                player2: {
-                    socketId: partner.id,
-                    username: partner.username,
-                    sessionKey: partner.sessionKey || null,
-                    board: null,
-                    ready: false,
-                },
-                phase: 'waiting', // waiting | placing | battle | finished
-                turn: null,
+                type: gameModule.id,          // 'battleship'
+                module: gameModule,           // ссылка на модуль
+                player1,
+                player2,
+                state: gameModule.createInitialState(player1, player2),  // состояние от модуля
+                phase: 'waiting',             // waiting | placing | battle | finished
                 winner: null,
                 idleTimer: null,
                 createdAt: Date.now(),
@@ -333,33 +221,29 @@ module.exports = function initGame(io, deps) {
             });
         });
 
-        // ⚠️ Возврат игрока в игру после обрыва
-socket.on('init_session', ({ sessionKey }) => {
-    if (!sessionKey) return;
-    if (!pendingReconnects.has(sessionKey)) return;
+        // --- ВОЗВРАТ ИГРОКА В ИГРУ ПОСЛЕ ОБРЫВА ---
+        socket.on('init_session', ({ sessionKey }) => {
+            if (!sessionKey) return;
+            if (!pendingReconnects.has(sessionKey)) return;
 
-    const { game, leaverKey, timer } = pendingReconnects.get(sessionKey);
-    clearTimeout(timer);
-    pendingReconnects.delete(sessionKey);
+            const { game, leaverKey, timer } = pendingReconnects.get(sessionKey);
+            clearTimeout(timer);
+            pendingReconnects.delete(sessionKey);
 
-    // Обновляем socketId в игре (мог измениться)
-    game[leaverKey].socketId = socket.id;
-    socketToGame.set(socket.id, game.id);
+            // Обновляем socketId в игре
+            game[leaverKey].socketId = socket.id;
+            socketToGame.set(socket.id, game.id);
 
-    // Переподключаем к комнате
-    const otherKey = leaverKey === 'player1' ? 'player2' : 'player1';
-    const roomId = `room_${game.player1.socketId}_${game.player2.socketId}`;
-    socket.join(roomId);
+            // Переподключаем к комнате
+            const otherKey = leaverKey === 'player1' ? 'player2' : 'player1';
+            const roomId = `room_${game.player1.socketId}_${game.player2.socketId}`;
+            socket.join(roomId);
 
-    console.log(`✅ Игрок ${leaverKey} вернулся в игру ${game.id}`);
+            console.log(`✅ Игрок ${leaverKey} вернулся в игру ${game.id}`);
 
-    // Уведомляем обоих
-    io.to(game[otherKey].socketId).emit('game_opponent_reconnected');
-    socket.emit('game_reconnected');
-
-    // ⚠️ TODO: переслать состояние игры (myBoard, enemyBoard, turn)
-    // Для MVP — клиент просто закроет плашку «ждём»
-});
+            io.to(game[otherKey].socketId).emit('game_opponent_reconnected');
+            socket.emit('game_reconnected');
+        });
 
         // --- ПРИНЯТЬ ПРИГЛАШЕНИЕ ---
         socket.on('game_accept', ({ gameId } = {}) => {
@@ -368,7 +252,6 @@ socket.on('init_session', ({ sessionKey }) => {
                 socket.emit('game_error', { reason: 'game_not_found' });
                 return;
             }
-            // Проверяем, что игрок — участник
             if (game.player1.socketId !== socket.id && game.player2.socketId !== socket.id) {
                 socket.emit('game_error', { reason: 'not_a_player' });
                 return;
@@ -378,10 +261,8 @@ socket.on('init_session', ({ sessionKey }) => {
                 return;
             }
 
-            // Переводим в фазу расстановки
             game.phase = 'placing';
 
-            // Обоим отправляем сигнал
             io.to(game.player1.socketId).emit('game_placing', { gameId });
             io.to(game.player2.socketId).emit('game_placing', { gameId });
         });
@@ -391,7 +272,6 @@ socket.on('init_session', ({ sessionKey }) => {
             const game = games.get(gameId);
             if (!game) return;
 
-            // Сообщаем отправителю
             const otherKey = game.player1.socketId === socket.id ? 'player2' : 'player1';
             const otherSocketId = game[otherKey].socketId;
 
@@ -399,23 +279,16 @@ socket.on('init_session', ({ sessionKey }) => {
                 byUsername: socket.username,
             });
 
-            // Чистим
             socketToGame.delete(game.player1.socketId);
             socketToGame.delete(game.player2.socketId);
             games.delete(gameId);
         });
 
-        // --- РАССТАНОВКА КОРАБЛЕЙ ---
-        // payload: { gameId, board } — board = 2D-массив, где клетка либо null, либо { ship: true }
-        // Или { gameId, random: true } — сгенерировать автоматически
+        // --- РАССТАНОВКА КОРАБЛЕЙ (универсальный обработчик действий) ---
         socket.on('game_place_ships', ({ gameId, board, random } = {}) => {
             const game = games.get(gameId);
             if (!game) {
                 socket.emit('game_error', { reason: 'game_not_found' });
-                return;
-            }
-            if (game.phase !== 'placing') {
-                socket.emit('game_error', { reason: 'wrong_phase' });
                 return;
             }
 
@@ -425,177 +298,74 @@ socket.on('init_session', ({ sessionKey }) => {
                 return;
             }
 
-            let finalBoard;
-
-            if (random) {
-                // Генерируем автоматически
-                finalBoard = generateRandomBoard();
-            } else if (Array.isArray(board)) {
-                // Валидируем присланную расстановку
-                // (упрощённая валидация: количество кораблей и их размеры)
-                // TODO: полная валидация в этапе 1.2
-                // Пока — принимаем как есть, но генерируем «правильно» для надёжности
-                finalBoard = generateRandomBoard();
-            } else {
-                socket.emit('game_error', { reason: 'bad_board' });
+            // Вызываем модуль
+            const result = game.module.handleAction(game, playerKey, 'place_ships', { board, random });
+            if (!result.ok) {
+                socket.emit('game_error', { reason: result.error });
                 return;
             }
 
-            game[playerKey].board = finalBoard;
-            game[playerKey].ready = true;
+            // Рассылаем события
+            dispatchEvents(game, playerKey, result.events);
 
-            // Отправляем клиенту его поле (для отображения)
-            socket.emit('game_board_accepted', {
-                gameId,
-                board: serializeMyBoard(finalBoard),
-            });
+            // Синхронизируем phase роутера с phase модуля
+            game.phase = game.state.phase;
 
-            // Если оба готовы — начинаем бой
-            if (game.player1.ready && game.player2.ready) {
-                game.phase = 'battle';
-                // Первый ход — player1 (или случайно)
-                game.turn = 'player1';
+            // Если игра началась — сбросить idle timer
+            if (game.phase === 'battle') {
                 resetIdleTimer(game);
-
-                io.to(game.player1.socketId).emit('game_battle', {
-                    gameId,
-                    turn: game.turn === 'player1' ? 'you' : 'opponent',
-                    youAre: 'player1', 
-                    myBoard: serializeMyBoard(game.player1.board),
-                    enemyBoard: serializeEnemyBoard(game.player2.board),
-                    opponentName: game.player2.username,
-                });
-                io.to(game.player2.socketId).emit('game_battle', {
-                    gameId,
-                    turn: game.turn === 'player2' ? 'you' : 'opponent',
-                    youAre: 'player2',
-                    myBoard: serializeMyBoard(game.player2.board),
-                    enemyBoard: serializeEnemyBoard(game.player1.board),
-                    opponentName: game.player1.username,
-                });
             }
         });
 
-        // --- ВЫСТРЕЛ ---
+        // --- ВЫСТРЕЛ (универсальный обработчик действий) ---
         socket.on('game_shot', ({ gameId, x, y } = {}) => {
             const game = games.get(gameId);
             if (!game) {
                 socket.emit('game_error', { reason: 'game_not_found' });
                 return;
             }
-            if (game.phase !== 'battle') {
-                socket.emit('game_error', { reason: 'wrong_phase' });
-                return;
-            }
 
-            const shooterKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
-            if (!shooterKey) {
+            const playerKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
+            if (!playerKey) {
                 socket.emit('game_error', { reason: 'not_a_player' });
                 return;
             }
 
-            // Ход этого игрока?
-            if (game.turn !== shooterKey) {
-                socket.emit('game_error', { reason: 'not_your_turn' });
+            // Вызываем модуль
+            const result = game.module.handleAction(game, playerKey, 'shot', { x, y });
+            if (!result.ok) {
+                socket.emit('game_error', { reason: result.error });
                 return;
             }
 
-            // Координаты в пределах поля?
-            if (!Number.isInteger(x) || !Number.isInteger(y) ||
-                x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) {
-                socket.emit('game_error', { reason: 'bad_coords' });
+            // Рассылаем события
+            dispatchEvents(game, playerKey, result.events);
+
+            // Если игра закончилась
+            if (result.finished) {
+                endGame(game, result.winner, result.reason);
                 return;
             }
 
-            // Клетка уже обстреляна?
-            const opponentKey = shooterKey === 'player1' ? 'player2' : 'player1';
-            const opponentBoard = game[opponentKey].board;
-            const targetCell = opponentBoard[y][x];
-
-            if (targetCell !== null && !targetCell.ship) {
-                // Уже стреляли сюда (miss)
-                socket.emit('game_error', { reason: 'already_shot' });
-                return;
-            }
-            if (targetCell && targetCell.ship && targetCell.hit) {
-                socket.emit('game_error', { reason: 'already_shot' });
-                return;
-            }
-
-            // --- ОБРАБОТКА ВЫСТРЕЛА ---
-            let result = 'miss'; // miss | hit | sunk
-
-            if (targetCell && targetCell.ship) {
-                // Попадание
-                targetCell.hit = true;
-                const { sunk } = checkShipSunk(opponentBoard, x, y);
-
-                if (sunk) {
-                    result = 'sunk';
-                    // Помечаем клетки вокруг потопленного корабля как auto-miss
-                    const shipCells = [];
-                    for (let cy = 0; cy < BOARD_SIZE; cy++) {
-                        for (let cx = 0; cx < BOARD_SIZE; cx++) {
-                            if (opponentBoard[cy][cx] && opponentBoard[cy][cx].shipId === targetCell.shipId) {
-                                shipCells.push({ x: cx, y: cy });
-                            }
-                        }
-                    }
-                    markAroundSunk(opponentBoard, shipCells);
-                } else {
-                    result = 'hit';
-                }
-            } else {
-                // Промах
-                opponentBoard[y][x] = { miss: true };
-            }
-
-            // Проверка победы
-            if (isAllSunk(opponentBoard)) {
-                endGame(game, shooterKey, 'win');
-                // Отдельно шлём результат выстрела, чтобы клиент отрисовал последний ход
-                socket.emit('game_shot_result', { x, y, result });
-                const oppSocketId = game[opponentKey].socketId;
-                io.to(oppSocketId).emit('game_opponent_shot', { x, y, result });
-                return;
-            }
-
-            // Передача хода (если промах)
-            if (result === 'miss') {
-                game.turn = opponentKey;
-            }
+            // Иначе — сбросить idle timer
             resetIdleTimer(game);
-
-            // Уведомляем обоих
-            socket.emit('game_shot_result', {
-                x, y, result,
-                turn: game.turn === shooterKey ? 'you' : 'opponent',
-            });
-            io.to(game[opponentKey].socketId).emit('game_opponent_shot', {
-                x, y, result,
-                turn: game.turn === opponentKey ? 'you' : 'opponent',
-            });
         });
 
-                // --- МИНИ-ЧАТ ВО ВРЕМЯ ИГРЫ ---
+        // --- МИНИ-ЧАТ ВО ВРЕМЯ ИГРЫ ---
         socket.on('game_chat', ({ gameId, text } = {}) => {
             const game = games.get(gameId);
             if (!game) return;
 
-            // Игрок участник?
             const playerKey = game.player1.socketId === socket.id ? 'player1'
                             : game.player2.socketId === socket.id ? 'player2'
                             : null;
             if (!playerKey) return;
 
-            // Игра не завершена?
             if (game.phase === 'finished') return;
 
-            // Текст валидный?
             const trimmed = String(text || '').trim().slice(0, 200);
             if (!trimmed) return;
 
-            // Отправляем обоим игрокам
             const payload = {
                 gameId,
                 from: playerKey,
@@ -616,48 +386,43 @@ socket.on('init_session', ({ sessionKey }) => {
             const leaverKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
             const winnerKey = leaverKey === 'player1' ? 'player2' : 'player1';
 
-            // Техническое поражение для вышедшего
             endGame(game, winnerKey, 'leave');
         });
 
         // --- DISCONNECT во время игры ---
         socket.on('disconnect', () => {
-    const gameId = socketToGame.get(socket.id);
-    if (!gameId) return;
+            const gameId = socketToGame.get(socket.id);
+            if (!gameId) return;
 
-    const game = games.get(gameId);
-    if (!game || game.phase === 'finished') {
-        socketToGame.delete(socket.id);
-        return;
-    }
+            const game = games.get(gameId);
+            if (!game || game.phase === 'finished') {
+                socketToGame.delete(socket.id);
+                return;
+            }
 
-    const leaverKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
-    const winnerKey = leaverKey === 'player1' ? 'player2' : 'player1';
-    const leaverSessionKey = game[leaverKey].sessionKey;
+            const leaverKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
+            const winnerKey = leaverKey === 'player1' ? 'player2' : 'player1';
+            const leaverSessionKey = game[leaverKey].sessionKey;
 
-    // Не endGame сразу — ждём 20 сек
-    console.log(`⚠️ Игрок ${leaverKey} отвалился. Ждём ${RECONNECT_GRACE_MS / 1000} сек...`);
+            console.log(`⚠️ Игрок ${leaverKey} отвалился. Ждём ${RECONNECT_GRACE_MS / 1000} сек...`);
 
-    // Уведомляем соперника
-    io.to(game[winnerKey].socketId).emit('game_opponent_disconnected', {
-        graceMs: RECONNECT_GRACE_MS,
+            io.to(game[winnerKey].socketId).emit('game_opponent_disconnected', {
+                graceMs: RECONNECT_GRACE_MS,
+            });
+
+            const timer = setTimeout(() => {
+                if (pendingReconnects.has(leaverSessionKey)) {
+                    pendingReconnects.delete(leaverSessionKey);
+                    endGame(game, winnerKey, 'disconnect');
+                    console.log(`❌ Игрок ${leaverKey} не вернулся. Техпоражение.`);
+                }
+            }, RECONNECT_GRACE_MS);
+
+            if (leaverSessionKey) {
+                pendingReconnects.set(leaverSessionKey, { game, leaverKey, timer });
+            }
+        });
     });
 
-    // ⚠️ Таймер через 20 сек
-    const timer = setTimeout(() => {
-        if (pendingReconnects.has(leaverSessionKey)) {
-            pendingReconnects.delete(leaverSessionKey);
-            endGame(game, winnerKey, 'disconnect');
-            console.log(`❌ Игрок ${leaverKey} не вернулся. Техпоражение.`);
-        }
-    }, RECONNECT_GRACE_MS);
-
-    // Запоминаем по sessionKey
-    if (leaverSessionKey) {
-        pendingReconnects.set(leaverSessionKey, { game, leaverKey, timer });
-    }
-});
-    });
-
-    console.log('🚢 Морской бой: модуль загружен');
+    console.log('🚢 Морской бой: модуль загружен (роутер)');
 };
