@@ -25,6 +25,7 @@
 // Пока одна игра (battleship). Меню выбора — в будущем.
 const GAMES = {
     battleship: require('./games/battleship'),
+    domino: require('./games/domino'),
 };
 
 module.exports = function initGame(io, deps) {
