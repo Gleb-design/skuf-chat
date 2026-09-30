@@ -129,6 +129,31 @@ function canPlayAny(hand, ends) {
 }
 
 // ========================================================
+// ПОДСЧЁТ ОЧКОВ (для «рыбы»)
+// ========================================================
+
+// Сумма всех очков в руке (a + b для каждой кости)
+function countHandPoints(hand) {
+    return hand.reduce((sum, tile) => sum + tile.a + tile.b, 0);
+}
+
+// Завершение партии «по рыбе» — у кого меньше очков, тот победил
+function finishByFish(state) {
+    const points1 = countHandPoints(state.hand1);
+    const points2 = countHandPoints(state.hand2);
+
+    state.phase = 'finished';
+    if (points1 < points2) state.winner = 'player1';
+    else if (points2 < points1) state.winner = 'player2';
+    else state.winner = 'draw';
+
+    state.fishPoints = { player1: points1, player2: points2 };
+    state.finishReason = 'fish';
+
+    return state;
+}
+
+// ========================================================
 // КОНТРАКТ ДЛЯ РОУТЕРА
 // ========================================================
 module.exports = {
@@ -150,6 +175,8 @@ module.exports = {
     getEnds,
     canPlayTile,
     canPlayAny,
+    countHandPoints,
+    finishByFish,
 
     // ========================================================
     // createInitialState
@@ -344,10 +371,18 @@ module.exports = {
             }
 
             const handKey = playerKey === 'player1' ? 'hand1' : 'hand2';
-            const tile = state.bazaar.shift(); // берём первую
-            state[handKey].push(tile);
+            const hand = state[handKey];
 
-            // Ход НЕ передаётся — игрок теперь может попробовать снова
+            // ⚠️ Брать из базара можно только если не можешь ходить
+            const ends = { left: state.board.leftEnd, right: state.board.rightEnd };
+            if (state.board.tiles.length > 0 && canPlayAny(hand, ends)) {
+                return { ok: false, error: 'must_play' };
+            }
+
+            const tile = state.bazaar.shift();
+            hand.push(tile);
+
+            // Ход НЕ передаётся — теперь можно попробовать снова
             return {
                 ok: true,
                 events: [
@@ -374,11 +409,51 @@ module.exports = {
                 return { ok: false, error: 'not_your_turn' };
             }
 
+            const handKey = playerKey === 'player1' ? 'hand1' : 'hand2';
+            const hand = state[handKey];
+
+            // ⚠️ Пас разрешён только если:
+            //   1) не можешь ходить с руки
+            //   2) базар пуст
+            const ends = { left: state.board.leftEnd, right: state.board.rightEnd };
+            if (state.board.tiles.length > 0 && canPlayAny(hand, ends)) {
+                return { ok: false, error: 'must_play' };
+            }
+            if (state.bazaar.length > 0) {
+                return { ok: false, error: 'must_draw' };
+            }
+
+            // Пас засчитывается
             state.passCount = (state.passCount || 0) + 1;
 
-            // Рыба: оба спасовали подряд
-            // (проверка — в подшаге 1.3.2)
+            // Рыба: оба спасовали подряд (после сброса счётчика при ходе)
+            if (state.passCount >= 2) {
+                finishByFish(state);
+                return {
+                    ok: true,
+                    events: [
+                        { to: 'both', event: 'game_board_update', data: {
+                            board: state.board,
+                            hand1Count: state.hand1.length,
+                            hand2Count: state.hand2.length,
+                            bazaarCount: state.bazaar.length,
+                            turn: null,
+                            fish: true,
+                            fishPoints: state.fishPoints,
+                        }},
+                        { to: 'both', event: 'game_finished', data: {
+                            winner: state.winner,
+                            reason: 'fish',
+                            fishPoints: state.fishPoints,
+                        }},
+                    ],
+                    finished: true,
+                    winner: state.winner,
+                    reason: 'fish',
+                };
+            }
 
+            // Передаём ход
             const opponentKey = playerKey === 'player1' ? 'player2' : 'player1';
             state.turn = opponentKey;
 
@@ -406,7 +481,11 @@ module.exports = {
     isFinished: (game) => {
         const state = game.state;
         if (state.phase === 'finished') {
-            return { finished: true, winner: state.winner, reason: 'win' };
+            return {
+                finished: true,
+                winner: state.winner,
+                reason: state.finishReason || 'win',
+            };
         }
         return { finished: false, winner: null, reason: null };
     },
