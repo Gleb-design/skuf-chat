@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.22.12
+Версия: v1.22.13
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.22.12 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.22.13 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.22.12
+- Стабильная версия: v1.22.13
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -79,7 +79,7 @@
   • win.mp3 (победа) — volume 0.5 (подольше)
   • lose.mp3 (поражение) — volume 0.5 (подольше)
   Подробности — в разделе 20 → «Звуки».
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v14)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v15)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -104,7 +104,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v14' (актуально с v1.22.12)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v15' (актуально с v1.22.13)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -154,7 +154,7 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v14' (актуально с v1.22.12)
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v15' (актуально с v1.22.13)
 ⚠️ ОТКАТАНО в v1.16.1...
 Оставлено как справка на будущее.
 ### Перевода сообщений / GlobeSkuf (v1.17.0)
@@ -604,9 +604,26 @@ skuf-chat/
     game_shot_result, game_opponent_shot; снимается в game_finished.
   • CACHE_NAME → skuf-chat-v14.
   • Файлы: public/game.css, public/game.js, public/sw.js.
+- v1.22.13 — reconnect grace 20 сек (MVP)
+  • Сервер: при disconnect игрока — НЕ endGame сразу, а таймер 20 сек
+    (pendingReconnects Map<sessionKey, {game, leaverKey, timer}>).
+  • Соперник получает game_opponent_disconnected { graceMs: 20000 } —
+    видит «⚠️ Соперник отвалился. Ждём 20 сек...».
+  • Если игрок вернулся (init_session) — таймер отменяется,
+    game_opponent_reconnected, игра продолжается.
+  • Если не вернулся за 20 сек — endGame(disconnect) — техпоражение.
+  • Работает для: обрыв интернета, offline → online (WebSocket рвётся,
+    socket.io сам переподключается).
+  • НЕ работает для: F5 (перезагрузка) — клиент не восстанавливает
+    оверлей (нет game_reconnect с полным состоянием). Отложено в бэклог.
+  • Файлы: game-server.js (pendingReconnects, init_session,
+    disconnect с таймером), public/game.js (обработчики
+    game_opponent_disconnected / game_opponent_reconnected / game_reconnected).
+  • CACHE_NAME → skuf-chat-v15.
+  • Файлы: game-server.js, public/game.js, public/sw.js.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
-### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.12
+### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
 - ✅ Серверная логика (v1.22.0)
 - ✅ UI-каркас (v1.22.1)
 - ✅ Приглашение (v1.22.2)
@@ -620,9 +637,10 @@ skuf-chat/
 - ✅ Таймер хода (v1.22.9)
 - ✅ Звуки выстрел/попадание/промах/потопление/победа/поражение (v1.22.11)
 - ✅ Анимации hit/miss/sunk/turn/chat (v1.22.12)
+- ✅ Grace-period reconnect 20 сек (v1.22.13, MVP — обрыв интернета, не F5)
 - ⏳ Ручная расстановка кораблей (клики / drag&drop) — в бэклоге
-- ⏳ Grace-period reconnect (20 сек на возврат) — константа есть, не используется
 - ⏳ Улучшенный экран победы (счёт, статистика) — в бэклоге
+- ⏳ Восстановление оверлея после F5 — в бэклоге
 
 
 ### МОНЕТИЗАЦИЯ (обсуждено, к реализации)
@@ -790,7 +808,7 @@ Render Key Value (Redis) — free tier, подходит.
 - На десктопе .msg-actions работает как раньше (hover)
 - Кнопки приглашения в приват на мобилке (≤480px): min-height: 44px
 
-## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.12)
+## 20. МОРСКОЙ БОЙ (v1.22.0–v1.22.13)
 
 ### Архитектура
 - **Сервер:** модуль `game-server.js` (в корне). Экспортирует
@@ -847,8 +865,13 @@ Render Key Value (Redis) — free tier, подходит.
 
 ### Таймеры
 - **IDLE_TIMEOUT_MS = 60 сек** — на ход. Если игрок не ходит, техпоражение.
-- **RECONNECT_GRACE_MS = 20 сек** — НЕ реализовано пока. При disconnect
-  игра завершается техпоражением сразу (упрощённо).
+- **RECONNECT_GRACE_MS = 20 сек** — реализовано в v1.22.13 (MVP).
+  При disconnect игрока — НЕ endGame, а таймер 20 сек. Соперник видит
+  «⚠️ Ждём 20 сек...». Если игрок вернулся — игра продолжается.
+  Если нет — endGame(disconnect).
+  ⚠️ Работает для обрыва интернета. НЕ работает для F5 (клиент не
+  восстанавливает оверлей — нет game_reconnect с полным состоянием).
+  Детали — раздел 15, v1.22.13.
 
 ### Античит
 - Клиент НЕ получает расположение кораблей соперника. Только результат
@@ -870,7 +893,7 @@ Render Key Value (Redis) — free tier, подходит.
 - **`public/game.js`** — клиентская логика (IIFE).
 - **`public/game.css`** — стили игры.
 - **`public/index.html`** — разметка оверлея + плашка gameInviteBar.
-- **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v14.
+- **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v15.
 - **`public/style.css`** — .private-controls для мобилки (v1.22.6).
 
 ### Что добавлено в v1.22.7-v1.22.8
@@ -892,10 +915,17 @@ Render Key Value (Redis) — free tier, подходит.
   Чужие выстрелы — только результат (без shot).
 - **Анимации** (v1.22.12): hitFlash/hitPop, missRipple/missDrop,
   sunkShake/sunkBounce, turnPulse (.turn-you), chatSlideRight/Left.
+### Что добавлено в v1.22.13
+- **Reconnect grace 20 сек (MVP)**: обрыв интернета → сервер ждёт 20 сек
+  → если игрок вернулся, игра продолжается; если нет — техпоражение.
+- **События**: game_opponent_disconnected, game_opponent_reconnected,
+  game_reconnected.
+- **Хранилище**: pendingReconnects Map<sessionKey, {game, leaverKey, timer}>.
+- ⚠️ F5 не восстанавливает оверлей (клиент не знает о игре). В бэклоге.
 
 ### Бэклог по игре
 - 🚧 Ручная расстановка кораблей (клики / drag&drop).
 - 🚧 Полная валидация `board` на сервере.
-- 🚧 Grace-period на reconnect (20 сек на возврат).
+- 🚧 Восстановление оверлея после F5 (game_reconnect с полным состоянием).
 - 🚧 Улучшенный экран победы/поражения (счёт, статистика).
 ===== КОНЕЦ ОТЧЁТА =====
