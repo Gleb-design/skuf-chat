@@ -151,7 +151,11 @@ module.exports = function initGame(io, deps) {
     io.on('connection', (socket) => {
 
         // --- ПРИГЛАШЕНИЕ В ИГРУ (из привата 1-на-1) ---
-        socket.on('game_invite', () => {
+        socket.on('game_invite', (payload = {}) => {
+            // ⚠️ payload может быть { gameType: 'battleship' | 'domino' }.
+            // Если не передан — по умолчанию battleship (обратная совместимость).
+            const gameType = payload.gameType || 'battleship';
+
             if (!socket.privateRoom) {
                 socket.emit('game_error', { reason: 'not_in_private' });
                 return;
@@ -171,11 +175,10 @@ module.exports = function initGame(io, deps) {
                 return;
             }
 
-            // ⚠️ ХАРДКОД: пока игра всегда battleship.
-            // Меню выбора игр — в будущем (клиент пришлёт gameType).
-            const gameModule = GAMES.battleship;
+            // Выбираем модуль по типу игры
+            const gameModule = GAMES[gameType];
             if (!gameModule) {
-                socket.emit('game_error', { reason: 'unknown_game' });
+                socket.emit('game_error', { reason: 'unknown_game_type' });
                 return;
             }
 
@@ -213,6 +216,7 @@ module.exports = function initGame(io, deps) {
             partner.emit('game_invited', {
                 gameId,
                 fromUsername: socket.username,
+                gameType,
             });
 
             // Подтверждение отправителю
