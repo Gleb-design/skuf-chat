@@ -33,6 +33,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="apple-touch-icon" href="/icon.png">
+  <link rel="stylesheet" href="domino.css">
 </head>
 <body>
 <div class="app-container">
@@ -179,6 +180,43 @@
   </div>
 </div>
 
+<!-- Оверлей Домино (скрыт по умолчанию) -->
+<div id="dominoOverlay" class="domino-overlay hidden">
+  <div class="domino-header">
+    <h3>🎲 Домино</h3>
+    <button id="dominoExitBtn" title="Выйти">✖</button>
+  </div>
+
+  <div class="domino-info">
+    <span id="dominoOpponent">Соперник: —</span>
+    <span id="dominoOpponentCount" class="domino-badge">🀄 0</span>
+    <span id="dominoBazaarCount" class="domino-badge">🃏 0</span>
+  </div>
+
+  <div class="domino-board" id="dominoBoard">
+    <!-- Здесь будет змейка -->
+  </div>
+
+  <div class="domino-controls">
+    <button id="dominoDrawBtn" class="hidden">🃏 Взять из базара</button>
+    <button id="dominoPassBtn" class="hidden">⏭ Пас</button>
+    <div id="dominoStatusMsg"></div>
+  </div>
+
+  <div class="domino-hand" id="dominoHand">
+    <!-- Здесь будут кости игрока -->
+  </div>
+
+  <!-- Мини-чат (переиспользуем gameChat, но отдельный DOM для домино) -->
+  <div class="game-chat" id="dominoChat">
+    <div class="game-chat-log" id="dominoChatLog"></div>
+    <div class="game-chat-input">
+      <input type="text" id="dominoChatInput" placeholder="Сказать сопернику..." maxlength="200" autocomplete="off">
+      <button type="button" id="dominoChatSendBtn">➤</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- Popup действий с сообщением (только на мобилке, ≤768px) -->
   <div id="msgActionPopup" class="msg-action-popup hidden">
@@ -195,6 +233,7 @@
   <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
+  <script src="domino.js"></script>
   <script src="game.js"></script>
   <script>
   if ('serviceWorker' in navigator) {

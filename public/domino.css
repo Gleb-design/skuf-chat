@@ -1,0 +1,227 @@
+/* ======================================================= */
+/* ДОМИНО — оверлей (v1.24.1)                              */
+/* ======================================================= */
+
+.domino-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 200;
+    background: rgba(20, 16, 12, 0.96);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 8px;
+    overflow-y: auto;
+    color: #e0e0e0;
+}
+
+.domino-overlay.hidden {
+    display: none !important;
+}
+
+/* --- Шапка --- */
+.domino-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #3a3a46;
+    flex-shrink: 0;
+}
+.domino-header h3 {
+    font-size: 18px;
+    color: #ffb74d;
+    margin: 0;
+}
+#dominoExitBtn {
+    background: transparent;
+    border: 1px solid #5a2a2a;
+    color: #ff8888;
+    font-size: 18px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.15s;
+}
+#dominoExitBtn:hover {
+    background: #5a2a2a;
+    color: #fff;
+}
+
+/* --- Инфа о сопернике и базаре --- */
+.domino-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #a0a0b0;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.domino-badge {
+    background: rgba(255, 183, 77, 0.15);
+    border: 1px solid #ffb74d;
+    color: #ffb74d;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* --- Доска (змейка) --- */
+.domino-board {
+    flex: 1;
+    min-height: 80px;
+    background: rgba(80, 50, 30, 0.4);
+    border: 1px solid #6a3d1c;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-content: center;
+    justify-content: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.domino-board:empty::before {
+    content: 'Тут будет змейка...';
+    color: #5a5a68;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* --- Кость --- */
+.domino-tile {
+    background: linear-gradient(180deg, #f5e8d0 0%, #d8c8a8 100%);
+    border: 2px solid #8a6a3a;
+    border-radius: 4px;
+    color: #2a1a0a;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 4px 8px;
+    min-width: 36px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    user-select: none;
+    transition: transform 0.1s;
+}
+
+/* Двойные кости — вертикально / пометка */
+.domino-tile.double {
+    background: linear-gradient(180deg, #fff0d0 0%, #e0c898 100%);
+    border-color: #b88a4a;
+}
+
+/* На доске — некликабельные */
+.domino-board .domino-tile {
+    pointer-events: none;
+    height: 26px;
+    font-size: 12px;
+}
+
+/* В руке — кликабельные */
+.domino-hand {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 0;
+    min-height: 44px;
+    flex-shrink: 0;
+}
+
+.domino-hand .domino-tile {
+    cursor: pointer;
+    height: 34px;
+    min-width: 44px;
+    font-size: 15px;
+}
+
+.domino-hand .domino-tile:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 10px rgba(255, 183, 77, 0.5);
+}
+
+/* Неигровая кость (нельзя выложить) */
+.domino-hand .domino-tile.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.domino-hand .domino-tile.disabled:hover {
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Кнопки --- */
+.domino-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.domino-controls button {
+    background: #594582;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.15s;
+}
+.domino-controls button:hover {
+    background: #472b6d;
+}
+.domino-controls button.hidden {
+    display: none !important;
+}
+
+#dominoDrawBtn {
+    background: #3a6a4a;
+}
+#dominoDrawBtn:hover {
+    background: #4a8a5a;
+}
+
+#dominoPassBtn {
+    background: #4a3a3a;
+}
+#dominoPassBtn:hover {
+    background: #5a4a4a;
+}
+
+#dominoStatusMsg {
+    width: 100%;
+    text-align: center;
+    font-size: 13px;
+    color: #ffb74d;
+    min-height: 16px;
+}
+
+/* --- Мобильная адаптация --- */
+@media (max-width: 768px) {
+    .domino-overlay {
+        padding: 8px;
+        gap: 6px;
+    }
+    .domino-hand .domino-tile {
+        height: 30px;
+        min-width: 38px;
+        font-size: 13px;
+    }
+    .domino-board .domino-tile {
+        height: 22px;
+        font-size: 11px;
+    }
+}
