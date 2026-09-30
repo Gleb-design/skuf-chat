@@ -251,6 +251,7 @@ module.exports = function initGame(io, deps) {
         });
 
         // --- ПРИНЯТЬ ПРИГЛАШЕНИЕ ---
+        // --- ПРИНЯТЬ ПРИГЛАШЕНИЕ ---
         socket.on('game_accept', ({ gameId } = {}) => {
             const game = games.get(gameId);
             if (!game) {
@@ -266,12 +267,32 @@ module.exports = function initGame(io, deps) {
                 return;
             }
 
-            game.phase = 'placing';
+            // ⚠️ Определяем фазу по состоянию модуля.
+            // Морской бой: phase = 'placing' (расстановка).
+            // Домино:     phase = 'battle'  (сразу бой, без расстановки).
+            const modulePhase = game.state.phase;
 
-            io.to(game.player1.socketId).emit('game_placing', { gameId });
-            io.to(game.player2.socketId).emit('game_placing', { gameId });
+            if (modulePhase === 'placing') {
+                // Игры с расстановкой (Морской бой)
+                game.phase = 'placing';
+                io.to(game.player1.socketId).emit('game_placing', { gameId });
+                io.to(game.player2.socketId).emit('game_placing', { gameId });
+            } else if (modulePhase === 'battle') {
+                // Игры без расстановки (Домино)
+                game.phase = 'battle';
+
+                // Отправляем обоим начальное состояние
+                const payload1 = game.module.serializeFor(game, 'player1');
+                const payload2 = game.module.serializeFor(game, 'player2');
+
+                io.to(game.player1.socketId).emit('game_started', { gameId, state: payload1 });
+                io.to(game.player2.socketId).emit('game_started', { gameId, state: payload2 });
+
+                resetIdleTimer(game);
+            } else {
+                socket.emit('game_error', { reason: 'unknown_start_phase' });
+            }
         });
-
         // --- ОТКЛОНИТЬ ПРИГЛАШЕНИЕ ---
         socket.on('game_decline', ({ gameId } = {}) => {
             const game = games.get(gameId);
@@ -353,6 +374,46 @@ module.exports = function initGame(io, deps) {
             }
 
             // Иначе — сбросить idle timer
+            resetIdleTimer(game);
+        });
+
+                // --- УНИВЕРСАЛЬНОЕ ДЕЙСТВИЕ ДЛЯ НОВЫХ ИГР (Домино, Точки, ...) ---
+        // payload: { gameId, action, data }
+        //   action: 'play_tile' | 'draw_from_bazaar' | 'pass' | ...
+        //   data:   { ...параметры действия }
+        socket.on('game_action', ({ gameId, action, data } = {}) => {
+            const game = games.get(gameId);
+            if (!game) {
+                socket.emit('game_error', { reason: 'game_not_found' });
+                return;
+            }
+
+            const playerKey = game.player1.socketId === socket.id ? 'player1' : 'player2';
+            if (!playerKey) {
+                socket.emit('game_error', { reason: 'not_a_player' });
+                return;
+            }
+
+            // Вызываем модуль
+            const result = game.module.handleAction(game, playerKey, action, data || {});
+            if (!result.ok) {
+                socket.emit('game_error', { reason: result.error });
+                return;
+            }
+
+            // Рассылаем события
+            dispatchEvents(game, playerKey, result.events);
+
+            // Синхронизируем phase
+            game.phase = game.state.phase;
+
+            // Если игра закончилась
+            if (result.finished) {
+                endGame(game, result.winner, result.reason);
+                return;
+            }
+
+            // Сбросить idle timer
             resetIdleTimer(game);
         });
 
