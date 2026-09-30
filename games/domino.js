@@ -318,6 +318,7 @@ module.exports = {
             if (hand.length === 0) {
                 state.phase = 'finished';
                 state.winner = playerKey;
+                state.finishReason = 'empty_hand';
                 return {
                     ok: true,
                     events: [
