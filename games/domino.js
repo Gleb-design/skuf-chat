@@ -186,8 +186,218 @@ module.exports = {
     // ========================================================
     // handleAction — заглушка (заполним в 1.3)
     // ========================================================
+    // ========================================================
+    // handleAction — обработать действие игрока
+    // ========================================================
+    // Actions:
+    //   'play_tile'       { tileId, side? }  — выложить кость
+    //   'draw_from_bazaar' — взять из базара
+    //   'pass'             — пропустить ход
+    //
+    // Возвращает: { ok: true, events: [...] } или { ok: false, error: '...' }
     handleAction: (game, playerKey, action, payload) => {
-        return { ok: false, error: 'not_implemented_yet' };
+        const state = game.state;
+
+        // ------------------------------------------------
+        // ВЫЛОЖИТЬ КОСТЬ
+        // ------------------------------------------------
+        if (action === 'play_tile') {
+            if (state.phase !== 'battle') {
+                return { ok: false, error: 'wrong_phase' };
+            }
+            if (state.turn !== playerKey) {
+                return { ok: false, error: 'not_your_turn' };
+            }
+
+            const { tileId, side } = payload || {};
+            if (!tileId) return { ok: false, error: 'no_tile' };
+
+            const handKey = playerKey === 'player1' ? 'hand1' : 'hand2';
+            const hand = state[handKey];
+            const tileIdx = hand.findIndex((t) => t.id === tileId);
+            if (tileIdx === -1) {
+                return { ok: false, error: 'tile_not_in_hand' };
+            }
+
+            const tile = hand[tileIdx];
+
+            // Определяем сторону: auto / left / right
+            let chosenSide = side || 'auto';
+            const { leftEnd, rightEnd } = state.board;
+            const isFirstMove = state.board.tiles.length === 0;
+
+            if (isFirstMove) {
+                // Первая кость — кладём «как есть», оба конца свободны
+                chosenSide = 'left'; // неважно, кладём в tiles
+            } else if (chosenSide === 'auto') {
+                // Определяем автоматически
+                const canLeft = (tile.b === leftEnd) || (tile.a === leftEnd);
+                const canRight = (tile.a === rightEnd) || (tile.b === rightEnd);
+
+                if (canLeft && !canRight) chosenSide = 'left';
+                else if (canRight && !canLeft) chosenSide = 'right';
+                else if (canLeft && canRight) {
+                    // Оба подходят — кладём справа (произвольно, можно улучшить)
+                    chosenSide = 'right';
+                } else {
+                    return { ok: false, error: 'cannot_place_here' };
+                }
+            }
+
+            // Проверяем, что выбранная сторона реально подходит
+            let newLeftEnd = leftEnd;
+            let newRightEnd = rightEnd;
+            let orientation = 'normal'; // normal: a-b, flipped: b-a
+
+            if (isFirstMove) {
+                // Первая кость — концы = её a и b
+                state.board.tiles.push({ id: tile.id, a: tile.a, b: tile.b, orientation: 'normal' });
+                newLeftEnd = tile.a;
+                newRightEnd = tile.b;
+            } else if (chosenSide === 'left') {
+                if (tile.b === leftEnd) {
+                    orientation = 'normal'; // кладём b к leftEnd, новый конец = a
+                    newLeftEnd = tile.a;
+                } else if (tile.a === leftEnd) {
+                    orientation = 'flipped'; // кладём a к leftEnd, новый конец = b
+                    newLeftEnd = tile.b;
+                } else {
+                    return { ok: false, error: 'cannot_place_left' };
+                }
+                // Вставляем в НАЧАЛО
+                state.board.tiles.unshift({ id: tile.id, a: tile.a, b: tile.b, orientation });
+            } else if (chosenSide === 'right') {
+                if (tile.a === rightEnd) {
+                    orientation = 'normal'; // кладём a к rightEnd, новый конец = b
+                    newRightEnd = tile.b;
+                } else if (tile.b === rightEnd) {
+                    orientation = 'flipped'; // кладём b к rightEnd, новый конец = a
+                    newRightEnd = tile.a;
+                } else {
+                    return { ok: false, error: 'cannot_place_right' };
+                }
+                // В конец
+                state.board.tiles.push({ id: tile.id, a: tile.a, b: tile.b, orientation });
+            }
+
+            // Обновляем концы
+            state.board.leftEnd = newLeftEnd;
+            state.board.rightEnd = newRightEnd;
+
+            // Убираем кость из руки
+            hand.splice(tileIdx, 1);
+
+            // Проверка победы: рука пуста?
+            if (hand.length === 0) {
+                state.phase = 'finished';
+                state.winner = playerKey;
+                return {
+                    ok: true,
+                    events: [
+                        { to: 'both', event: 'game_board_update', data: {
+                            board: state.board,
+                            hand1Count: state.hand1.length,
+                            hand2Count: state.hand2.length,
+                            bazaarCount: state.bazaar.length,
+                            turn: null,
+                        }},
+                        { to: 'both', event: 'game_finished', data: { winner: 'you-or-opponent', reason: 'empty_hand' }},
+                    ],
+                    finished: true,
+                    winner: playerKey,
+                    reason: 'empty_hand',
+                };
+            }
+
+            // Передаём ход
+            const opponentKey = playerKey === 'player1' ? 'player2' : 'player1';
+            state.turn = opponentKey;
+            state.passCount = 0; // сброс счётчика пасов
+
+            return {
+                ok: true,
+                events: [
+                    { to: 'both', event: 'game_board_update', data: {
+                        board: state.board,
+                        hand1Count: state.hand1.length,
+                        hand2Count: state.hand2.length,
+                        bazaarCount: state.bazaar.length,
+                        turn: state.turn,
+                        lastMove: { tileId: tile.id, side: chosenSide, playerKey },
+                    }},
+                ],
+            };
+        }
+
+        // ------------------------------------------------
+        // ВЗЯТЬ ИЗ БАЗАРА
+        // ------------------------------------------------
+        if (action === 'draw_from_bazaar') {
+            if (state.phase !== 'battle') {
+                return { ok: false, error: 'wrong_phase' };
+            }
+            if (state.turn !== playerKey) {
+                return { ok: false, error: 'not_your_turn' };
+            }
+            if (state.bazaar.length === 0) {
+                return { ok: false, error: 'bazaar_empty' };
+            }
+
+            const handKey = playerKey === 'player1' ? 'hand1' : 'hand2';
+            const tile = state.bazaar.shift(); // берём первую
+            state[handKey].push(tile);
+
+            // Ход НЕ передаётся — игрок теперь может попробовать снова
+            return {
+                ok: true,
+                events: [
+                    { to: 'self', event: 'game_drew_tile', data: { tile } },
+                    { to: 'both', event: 'game_board_update', data: {
+                        board: state.board,
+                        hand1Count: state.hand1.length,
+                        hand2Count: state.hand2.length,
+                        bazaarCount: state.bazaar.length,
+                        turn: state.turn,
+                    }},
+                ],
+            };
+        }
+
+        // ------------------------------------------------
+        // ПРОПУСТИТЬ ХОД
+        // ------------------------------------------------
+        if (action === 'pass') {
+            if (state.phase !== 'battle') {
+                return { ok: false, error: 'wrong_phase' };
+            }
+            if (state.turn !== playerKey) {
+                return { ok: false, error: 'not_your_turn' };
+            }
+
+            state.passCount = (state.passCount || 0) + 1;
+
+            // Рыба: оба спасовали подряд
+            // (проверка — в подшаге 1.3.2)
+
+            const opponentKey = playerKey === 'player1' ? 'player2' : 'player1';
+            state.turn = opponentKey;
+
+            return {
+                ok: true,
+                events: [
+                    { to: 'both', event: 'game_board_update', data: {
+                        board: state.board,
+                        hand1Count: state.hand1.length,
+                        hand2Count: state.hand2.length,
+                        bazaarCount: state.bazaar.length,
+                        turn: state.turn,
+                        lastMove: { playerKey, action: 'pass' },
+                    }},
+                ],
+            };
+        }
+
+        return { ok: false, error: 'unknown_action' };
     },
 
     // ========================================================
