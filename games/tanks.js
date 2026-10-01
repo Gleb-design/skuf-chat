@@ -60,6 +60,7 @@ module.exports = {
             tick: 0,
             winner: null,
             finishReason: null,
+            phase: 'battle',
             startedAt: Date.now(),
             seed: Date.now(), // для отладки, чтобы понимать, какая карта выпала
         };

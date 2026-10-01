@@ -25,7 +25,7 @@
 const GAMES = {
     battleship: require('./games/battleship'),
     domino: require('./games/domino'),
-    tanks:  require('./games/tanks'),
+    tanks: require('./games/tanks'),
 };
 
 module.exports = function initGame(io, deps) {
@@ -109,6 +109,10 @@ module.exports = function initGame(io, deps) {
             clearTimeout(game.idleTimer);
             game.idleTimer = null;
         }
+        if (game.loopTimer) {
+            clearInterval(game.loopTimer);
+            game.loopTimer = null;
+        }
 
         const players = [game.player1, game.player2];
         for (const p of players) {
@@ -143,6 +147,38 @@ module.exports = function initGame(io, deps) {
             const winnerKey = loserKey === 'player1' ? 'player2' : 'player1';
             endGame(game, winnerKey, 'idle');
         }, IDLE_TIMEOUT_MS);
+    }
+
+    // ========================================================
+    // ИГРОВОЙ ЦИКЛ ДЛЯ REAL-TIME ИГР (Танчики)
+    // ========================================================
+    // Каждые 50 мс продвигает игру на 1 тик и рассылает состояние обоим.
+    function startGameLoop(game) {
+        if (game.loopTimer) return; // уже запущен
+
+        game.loopTimer = setInterval(() => {
+            if (game.phase !== 'battle') {
+                clearInterval(game.loopTimer);
+                game.loopTimer = null;
+                return;
+            }
+
+            // Тик игры (мутирует game.state)
+            game.module.tickGame(game.state);
+
+            // Проверка на победу (модуль)
+            const res = game.module.isFinished(game.state);
+            if (res.finished) {
+                endGame(game, res.winner, res.reason);
+                return;
+            }
+
+            // Рассылаем новое состояние
+            const p1 = game.module.serializeFor(game.state, 'player1');
+            const p2 = game.module.serializeFor(game.state, 'player2');
+            io.to(game.player1.socketId).emit('game_tick', { gameId: game.id, state: p1 });
+            io.to(game.player2.socketId).emit('game_tick', { gameId: game.id, state: p2 });
+        }, 50);
     }
 
     // ========================================================
@@ -278,7 +314,7 @@ module.exports = function initGame(io, deps) {
                 io.to(game.player1.socketId).emit('game_placing', { gameId });
                 io.to(game.player2.socketId).emit('game_placing', { gameId });
             } else if (modulePhase === 'battle') {
-                // Игры без расстановки (Домино)
+                // Игры без расстановки (Домино, Танчики)
                 game.phase = 'battle';
 
                 // Отправляем обоим начальное состояние
@@ -289,6 +325,11 @@ module.exports = function initGame(io, deps) {
                 io.to(game.player2.socketId).emit('game_started', { gameId, state: payload2 });
 
                 resetIdleTimer(game);
+
+                // Запускаем real-time цикл только для игр, у которых есть tickGame
+                if (typeof game.module.tickGame === 'function') {
+                    startGameLoop(game);
+                }
             } else {
                 socket.emit('game_error', { reason: 'unknown_start_phase' });
             }
@@ -377,7 +418,7 @@ module.exports = function initGame(io, deps) {
             resetIdleTimer(game);
         });
 
-                // --- УНИВЕРСАЛЬНОЕ ДЕЙСТВИЕ ДЛЯ НОВЫХ ИГР (Домино, Точки, ...) ---
+        // --- УНИВЕРСАЛЬНОЕ ДЕЙСТВИЕ ДЛЯ НОВЫХ ИГР (Домино, Точки, ...) ---
         // payload: { gameId, action, data }
         //   action: 'play_tile' | 'draw_from_bazaar' | 'pass' | ...
         //   data:   { ...параметры действия }
@@ -423,8 +464,8 @@ module.exports = function initGame(io, deps) {
             if (!game) return;
 
             const playerKey = game.player1.socketId === socket.id ? 'player1'
-                            : game.player2.socketId === socket.id ? 'player2'
-                            : null;
+                : game.player2.socketId === socket.id ? 'player2'
+                    : null;
             if (!playerKey) return;
 
             if (game.phase === 'finished') return;
