@@ -319,38 +319,53 @@ module.exports = {
                 state.phase = 'finished';
                 state.winner = playerKey;
                 state.finishReason = 'empty_hand';
+
+                const winner1 = playerKey === 'player1' ? 'you' : 'opponent';
+                const winner2 = playerKey === 'player2' ? 'you' : 'opponent';
+
                 return {
                     ok: true,
                     events: [
-                        { to: 'both', event: 'game_board_update', data: {
-                            board: state.board,
-                            hand1Count: state.hand1.length,
-                            hand2Count: state.hand2.length,
-                            bazaarCount: state.bazaar.length,
+                        { to: 'player1', event: 'game_board_update', data: {
+                            board: state.board, hand1Count: state.hand1.length,
+                            hand2Count: state.hand2.length, bazaarCount: state.bazaar.length,
                             turn: null,
                         }},
-                        { to: 'both', event: 'game_finished', data: { winner: 'you-or-opponent', reason: 'empty_hand' }},
+                        { to: 'player2', event: 'game_board_update', data: {
+                            board: state.board, hand1Count: state.hand1.length,
+                            hand2Count: state.hand2.length, bazaarCount: state.bazaar.length,
+                            turn: null,
+                        }},
+                        { to: 'player1', event: 'game_finished', data: { winner: winner1, reason: 'empty_hand' }},
+                        { to: 'player2', event: 'game_finished', data: { winner: winner2, reason: 'empty_hand' }},
                     ],
                     finished: true,
                     winner: playerKey,
                     reason: 'empty_hand',
                 };
             }
-
-            // Передаём ход
+             // Передаём ход
             const opponentKey = playerKey === 'player1' ? 'player2' : 'player1';
             state.turn = opponentKey;
-            state.passCount = 0; // сброс счётчика пасов
+            state.passCount = 0;
 
             return {
                 ok: true,
                 events: [
-                    { to: 'both', event: 'game_board_update', data: {
+                    { to: 'player1', event: 'game_board_update', data: {
                         board: state.board,
-                        hand1Count: state.hand1.length,
-                        hand2Count: state.hand2.length,
+                        myHand: state.hand1,
+                        opponentHandCount: state.hand2.length,
                         bazaarCount: state.bazaar.length,
-                        turn: state.turn,
+                        turn: state.turn === 'player1' ? 'you' : 'opponent',
+                        lastMove: { tileId: tile.id, side: chosenSide, playerKey },
+                    }},
+                    { to: 'player2', event: 'game_board_update', data: {
+                        board: state.board,
+                        myHand: state.hand2,
+                        opponentHandCount: state.hand1.length,
+                        bazaarCount: state.bazaar.length,
+                        turn: state.turn === 'player2' ? 'you' : 'opponent',
                         lastMove: { tileId: tile.id, side: chosenSide, playerKey },
                     }},
                 ],
@@ -430,23 +445,25 @@ module.exports = {
             // Рыба: оба спасовали подряд (после сброса счётчика при ходе)
             if (state.passCount >= 2) {
                 finishByFish(state);
+                // winner: 'player1' | 'player2' | 'draw'
+                const w1 = state.winner === 'player1' ? 'you' : (state.winner === 'draw' ? 'draw' : 'opponent');
+                const w2 = state.winner === 'player2' ? 'you' : (state.winner === 'draw' ? 'draw' : 'opponent');
+
                 return {
                     ok: true,
                     events: [
-                        { to: 'both', event: 'game_board_update', data: {
-                            board: state.board,
-                            hand1Count: state.hand1.length,
-                            hand2Count: state.hand2.length,
-                            bazaarCount: state.bazaar.length,
-                            turn: null,
-                            fish: true,
-                            fishPoints: state.fishPoints,
+                        { to: 'player1', event: 'game_board_update', data: {
+                            board: state.board, hand1Count: state.hand1.length,
+                            hand2Count: state.hand2.length, bazaarCount: state.bazaar.length,
+                            turn: null, fish: true, fishPoints: state.fishPoints,
                         }},
-                        { to: 'both', event: 'game_finished', data: {
-                            winner: state.winner,
-                            reason: 'fish',
-                            fishPoints: state.fishPoints,
+                        { to: 'player2', event: 'game_board_update', data: {
+                            board: state.board, hand1Count: state.hand1.length,
+                            hand2Count: state.hand2.length, bazaarCount: state.bazaar.length,
+                            turn: null, fish: true, fishPoints: state.fishPoints,
                         }},
+                        { to: 'player1', event: 'game_finished', data: { winner: w1, reason: 'fish', fishPoints: state.fishPoints }},
+                        { to: 'player2', event: 'game_finished', data: { winner: w2, reason: 'fish', fishPoints: state.fishPoints }},
                     ],
                     finished: true,
                     winner: state.winner,

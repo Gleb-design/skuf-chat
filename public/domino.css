@@ -79,13 +79,13 @@
     border: 1px solid #6a3d1c;
     border-radius: 8px;
     padding: 10px;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
     gap: 4px;
-    align-content: center;
-    justify-content: center;
-    overflow-x: auto;
-    overflow-y: hidden;
+    justify-items: center;
+    align-content: start;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .domino-board:empty::before {

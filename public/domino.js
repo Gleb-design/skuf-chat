@@ -84,11 +84,25 @@
         if (tile.isDouble) el.classList.add('double');
         if (opts.disabled) el.classList.add('disabled');
 
-        // Показываем как "a-b" (если a > b — нормализуем для отображения)
-        const a = tile.a <= tile.b ? tile.a : tile.b;
-        const b = tile.a <= tile.b ? tile.b : tile.a;
+        // ⚠️ Учитываем orientation при отображении:
+        //   normal:  a-b
+        //   flipped: b-a
+        //   без orientation (в руке): a-b (порядок как есть)
+        let displayA, displayB;
 
-        el.textContent = `${a}-${b}`;
+        if (opts.respectOrientation && tile.orientation === 'flipped') {
+            displayA = tile.b;
+            displayB = tile.a;
+        } else if (opts.respectOrientation && tile.orientation === 'normal') {
+            displayA = tile.a;
+            displayB = tile.b;
+        } else {
+            // По умолчанию (в руке) — без сортировки, как есть
+            displayA = tile.a;
+            displayB = tile.b;
+        }
+
+        el.textContent = `${displayA}-${displayB}`;
         el.dataset.tileId = tile.id;
         return el;
     }
@@ -143,7 +157,7 @@
         if (!state.board.tiles || state.board.tiles.length === 0) return;
 
         for (const tile of state.board.tiles) {
-            const el = createTileEl(tile);
+            const el = createTileEl(tile, { respectOrientation: true });
             boardEl.appendChild(el);
         }
     }
@@ -255,40 +269,45 @@
     });
 
     // Обновление доски / состояния после хода
+    // Обновление доски / состояния после хода
     socket.on('game_board_update', (data) => {
         if (!state.gameId) return;
 
-        // ⚠️ ВАЖНО: это событие шлётся ВСЕМ (to: 'both'),
-        // но каждая сторона должна видеть СВОЮ руку.
-        // На сервере serializeFor не вызывается — значит, шлём «общий» набор.
-        // Для MVP: обновляем только то, что нейтрально (board, counts, turn).
-        // Свою руку перезапрашивать не надо — она меняется только при наших действиях.
-
         // Обновляем доску
         if (data.board) state.board = data.board;
-        if (typeof data.hand1Count === 'number' || typeof data.hand2Count === 'number') {
-            // ⚠️ Нужно знать, какая рука — наша. Пока простая логика:
-            // если наш myHand.length не совпадает с hand1Count — обновим как opponent
-            // (упрощённо для MVP).
-        }
-        if (typeof data.bazaarCount === 'number') state.bazaarCount = data.bazaarCount;
 
-        if (data.turn !== undefined) {
-            state.turn = data.turn === (state.turn === 'you' ? 'you' : 'you') ? 'you' : (data.turn === 'player1' || data.turn === 'player2' ? null : data.turn);
+        // Обновляем СВОЮ руку (сервер шлёт персонально)
+        if (Array.isArray(data.myHand)) {
+            state.myHand = data.myHand;
         }
 
-        // ⚠️ Пока сервер не шлёт персонализированные данные — делаем упрощённо:
-        // «turn» приходит как 'player1' | 'player2' (в game_server так и есть)
-        // Значит, нам нужен myPlayerKey. ⚠️ TODO: доработать.
-        // Для MVP: если turn не 'you' и не 'opponent' — игнорируем.
+        // Обновляем счётчик костей соперника
+        if (typeof data.opponentHandCount === 'number') {
+            state.opponentHandCount = data.opponentHandCount;
+        }
 
-        if (data.turn === 'player1' || data.turn === 'player2') {
-            // Не знаем, кто мы — не обновляем. ⚠️ TODO.
-        } else if (data.turn === 'you' || data.turn === 'opponent') {
+        // Обновляем базар
+        if (typeof data.bazaarCount === 'number') {
+            state.bazaarCount = data.bazaarCount;
+        }
+
+        // Обновляем ход
+        if (data.turn === 'you' || data.turn === 'opponent') {
             state.turn = data.turn;
+        } else if (data.turn === null) {
+            state.turn = null;
         }
 
         renderAll();
+
+        // Обновляем статус (кроме финала — там свой обработчик)
+        if (state.phase !== 'finished') {
+            if (state.turn === 'you') {
+                statusMsgEl.textContent = '🎯 Твой ход!';
+            } else if (state.turn === 'opponent') {
+                statusMsgEl.textContent = '⌛ Ход соперника';
+            }
+        }
     });
 
     // Пришла кость из базара (только нам)
