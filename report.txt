@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.24.3
+Версия: v1.26.0
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.24.3 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.26.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.24.3
+- Стабильная версия: v1.26.0
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -225,6 +225,7 @@ skuf-chat/
 ├── games/                 ← новый (v1.23.0) — модули игр
 │   └── battleship.js      ← логика Морского боя
 │   └── domino.js          ← новый (v1.24.0) — логика Домино
+│   └── tanks.js           ← новый (v1.25.0) — логика Танчиков 1-на-1
 ├── public/
 │   ├── client.js
 │   ├── game.js            ← новый (v1.22.0) — клиентская логика игры
@@ -232,6 +233,8 @@ skuf-chat/
 │   ├── domino.js          ← новый (v1.24.1) — клиентская логика Домино
 │   ├── domino.css         ← новый (v1.24.1) — стили Домино
 │   ├── game-menu.js       ← новый (v1.24.2) — меню выбора игр
+│   ├── tanks.js           ← новый (v1.26.0) — клиент Танчиков
+│   ├── tanks.css          ← новый (v1.26.0) — стили Танчиков
 │   ├── index.html
 │   ├── style.css
 │   ├── sw.js
@@ -728,6 +731,96 @@ skuf-chat/
     так что одного коммента в HTML достаточно.
   • Возврат: раскомментировать блок в index.html → Домино снова в меню.
   • Файлы: public/index.html, report.txt.
+- v1.25.0 — ТАНЧИКИ: каркас серверного модуля
+  • games/tanks.js — новый модуль с контрактом (id, name,
+    minPlayers, maxPlayers, createInitialState, handleAction,
+    isFinished, serializeFor).
+  • Константы: MAP_SIZE=13, TILE_* (EMPTY/BRICK/STEEL/WATER/BUSH/BASE),
+    TANK_LIVES=3, TANK_SPEED_TICKS=5, BULLET_SPEED_TICKS=1,
+    RESPAWN_TICKS=40, BATTLE_TIMEOUT_MS=5 мин.
+  • Позиции: P1_SPAWN (1, 10), P2_SPAWN (11, 10),
+    P1_BASE (1, 11), P2_BASE (11, 11).
+  • game-server.js: добавлено tanks: require('./games/tanks') в GAMES.
+  • Пока все методы — заглушки (createEmptyMap, createTankStub).
+  • Проверка: `npm start` без ошибок, `node -e "require('./game-server')"`
+    выводит OK.
+  • Файлы: games/tanks.js (новый), game-server.js (1 строка).
+
+- v1.25.1 — Танчики: генератор карты 13x13
+  • generateMap() — симметричная карта относительно центра поля.
+  • Бетонная рамка по периметру.
+  • Веса тайлов: 30% пусто, 30% кирпич, 10% бетон, 15% вода, 15% кусты.
+  • Базы (TILE_BASE) в нижних углах, обнесены кирпичом с трёх сторон.
+  • Коридор перед базами (clearArea) — гарантированно пустой,
+    чтобы танки могли выехать.
+  • Проверка: ASCII-рендер карты через `node -e` — базы в углах,
+    рамка бетона, симметрия видна.
+  • Файлы: games/tanks.js.
+
+- v1.25.2 — Танчики: игровой цикл (движение и повороты)
+  • tickGame(game) — один тик 50 мс.
+  • Поворот мгновенный (вариант A): если желаемое направление
+    не совпадает с текущим — танк поворачивается и стоит этот тик.
+  • Движение — раз в TANK_SPEED_TICKS=5 тиков (1 клетка/250 мс).
+  • Коллизии: кирпич, бетон, вода, база, чужой танк — непроходимы;
+    кусты и пусто — проходимы.
+  • Респавн (respawnTanks) — пока без стрельбы не вызывается.
+  • handleAction(game, playerKey, 'input', payload) — обновляет
+    game.inputs[playerKey] (up/down/left/right/shoot).
+  • createInitialState: добавлено поле inputs — хранилище ввода.
+  • Проверка через `node -e`: нажатие "вверх" двигает y, "вправо"
+    поворачивает и двигает x, упор в стену останавливает.
+  • Файлы: games/tanks.js.
+
+- v1.25.3 — Танчики: real-time цикл на сервере (20 Гц)
+  • game-server.js: функция startGameLoop(game) — setInterval(50мс).
+  • Каждый тик: module.tickGame(game.state) → проверка isFinished →
+    рассылка game_tick обоим игрокам.
+  • endGame: очистка loopTimer вместе с idleTimer.
+  • game_accept: если modulePhase === 'battle' И у модуля есть
+    tickGame → startGameLoop(game).
+  • game-server.js: в game_accept блок "else if (modulePhase === 'battle')"
+    расширен на Домино и Танчики (комментарий обновлён).
+  • Добавлено поле phase: 'battle' в createInitialState модуля tanks.
+  • ⚠️ isFinished пока всегда false — победы/поражения ещё нет.
+  • Файлы: game-server.js, games/tanks.js.
+
+- v1.26.0 — ТАНЧИКИ: клиент — Canvas-рендер + управление WASD
+  • public/tanks.js — клиентская логика (IIFE, глобальный socket).
+  • public/tanks.css — стили оверлея, инфо-плашек, Canvas.
+  • public/index.html:
+    - <link rel="stylesheet" href="tanks.css"> в <head>.
+    - <button class="game-menu-item" data-game="tanks"> в меню игр.
+    - <div id="tanksOverlay"> после #dominoOverlay.
+    - <script src="tanks.js"></script> после game.js.
+  • Canvas 650×650, CELL=50. Рендер: карта (кирпич, бетон, вода,
+    кусты, базы), танки (зелёный — свой, красный — враг, ствол по dir),
+    базы (жёлтый квадрат, при уничтожении — красный крест),
+    снаряды (жёлтые круги — код готов, но стрельбы пока нет).
+  • Управление: WASD + стрелки + Space (одновременно).
+    Зажатые клавиши хранятся в input = {up,down,left,right,shoot}.
+    Отправка game_action { action: 'input' } на сервер 20 раз в сек
+    (только если inputDirty).
+  • Обработка событий: game_started → открыть оверлей,
+    применить state, запустить inputLoop; game_tick → applyState +
+    redraw; game_finished → alert + закрыть; game_opponent_disconnected /
+    game_opponent_reconnected — лог в консоль.
+  • Кнопка выхода: ✖ → game_leave + closeOverlay.
+  • ИНФО-плашки: Соперник, ❤️ N (жизни), ⏱ N (тик).
+  • ⚠️ myKey пока жёстко 'player1' (уточним позже через youAre в state).
+  • ⚠️ Стрельба на сервере ЕЩЁ НЕ реализована — флаг shoot уходит,
+    но игнорируется.
+  • ⚠️ Контракт модуля: serializeFor принимает и обёртку роутера
+    (game.state || game), и сам state — сделано для совместимости
+    с game_accept (обёртка) и startGameLoop (сам state).
+  • ⚠️ ВАЖНО: createInitialState НЕ использует аргументы player1/player2
+    как ключи объекта — они приходят как ОБЪЕКТЫ {socketId, username},
+    и tanks['[object Object]'] ломал всё. Ключи жёстко 'player1'/'player2'.
+  • Проверено: два окна браузера (обычное + инкогнито) — приглашение
+    принимается, оверлей открывается, карта рисуется, оба танка на
+    стартовых позициях, WASD двигает танк, тик растёт (20 Гц).
+  • Файлы: public/tanks.js (новый), public/tanks.css (новый),
+    public/index.html, games/tanks.js, game-server.js.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
@@ -1188,4 +1281,88 @@ public/domino.js (domino). Универсальный клиент — зада�
 - Клик по .game-menu-item[data-game] → socket.emit('game_invite', { gameType }).
 - ДОБАВЛЕНИЕ НОВОЙ ИГРЫ В МЕНЮ: вставить в .game-menu-list
   <button class="game-menu-item" data-game="<game>">...</button>.
+## 22. ТАНЧИКИ 1-НА-1 (v1.25.0–v1.26.0)
+
+### Что это
+Классика Battle City, адаптированная под дуэль 1-на-1.
+Поле 13×13, у каждого своя база в углу. Цель — уничтожить базу
+соперника или все его жизни.
+
+### Архитектура
+- **Модуль:** games/tanks.js (серверная логика).
+- **Клиент:** public/tanks.js + public/tanks.css.
+- **Роутер:** game-server.js (универсальный, уже знает про tanks).
+- **Хранение:** RAM, как у других игр (улетает при рестарте).
+
+### Контракт модуля (как у battleship/domino)
+- id: 'tanks', name: '🛡️ Танчики', minPlayers: 2, maxPlayers: 2
+- createInitialState(player1, player2) — карта + танки + базы + inputs.
+  ⚠️ player1/player2 — ОБЪЕКТЫ {socketId, username}, не строки!
+  Ключи в tanks/bases/inputs — жёстко 'player1'/'player2'.
+- handleAction(game, playerKey, action, payload) — работает с game.state.
+  Сейчас единственное действие: 'input' → обновляет inputs[playerKey].
+- isFinished(game) — вызывается со state, пока всегда false.
+- serializeFor(game, playerKey) — вызывается и с обёрткой (game_accept),
+  и с самим state (startGameLoop). Внутри: const state = game.state || game.
+- tickGame(state) — вызывается роутером как module.tickGame(game.state).
+  Продвигает игру на 1 тик.
+
+### Поле
+- MAP_SIZE = 13. Клетка рендерится 50×50 (Canvas 650×650).
+- Тайлы: TILE_EMPTY=0, TILE_BRICK=1, TILE_STEEL=2, TILE_WATER=3,
+  TILE_BUSH=4, TILE_BASE=5.
+- Рамка бетона по периметру. Базы P1_BASE=(1,11), P2_BASE=(11,11).
+- Танки: P1_SPAWN=(1,10), P2_SPAWN=(11,10). Смотрят вверх.
+- Симметрия карты относительно центра (поворот на 180°).
+
+### Константы движения
+- TANK_SPEED_TICKS = 5 (1 клетка за 250 мс при 20 Гц).
+- BULLET_SPEED_TICKS = 1 (пока не используется).
+- RESPAWN_TICKS = 40 (2 сек) — тоже пока не используется.
+- BATTLE_TIMEOUT_MS = 5 мин (пока не подключено).
+
+### Игровой цикл на сервере
+- startGameLoop(game) в game-server.js: setInterval 50 мс.
+- Каждый тик: tickGame → isFinished → serializeFor для обоих →
+  emit('game_tick', { gameId, state }).
+- Останавливается в endGame или при выходе из фазы 'battle'.
+
+### Управление
+- Десктоп: WASD (или стрелки) + Space. Клавиши зажатые — хранятся.
+- Клиент шлёт game_action { gameId, action: 'input', data: {up,down,
+  left,right,shoot} } каждые 50 мс, если inputDirty.
+- Мобилка: не реализована (отложена).
+
+### Что НЕ реализовано (бэклог Танчиков)
+- 🚧 Стрельба: спавн снаряда по нажатию Space, полёт по сетке,
+  столкновения с кирпичом (ломает), бетоном (не ломает), водой
+  (пролетает), танком (жизнь −1), базой (конец игры).
+- 🚧 Победа/поражение: isFinished должен проверять базы/жизни.
+- 🚧 Экран итога: alert → красивый overlay со счётом.
+- 🚧 Определение myKey: сейчас 'player1' жёстко на клиенте.
+  Надо добавить youAre в serializeFor.
+- 🚧 Мобильное управление (виртуальный джойстик + кнопка выстрела).
+- 🚧 Звуки: выстрел, попадание, взрыв, победа.
+- 🚧 Кусты: сейчас рисуются как зелёные квадраты, надо — чтобы
+  танк «прятался» под ними (у соперника не отображался).
+- 🚧 Таймер партии 5 минут (ничья).
+
+### Файлы
+- games/tanks.js — серверная логика Танчиков.
+- public/tanks.js — клиентская логика (IIFE).
+- public/tanks.css — стили оверлея, Canvas, инфо-плашек.
+- public/index.html — оверлей #tanksOverlay + кнопка в меню игр.
+- game-server.js — startGameLoop, очистка loopTimer, поддержка tanks
+  в GAMES.
+- public/sw.js — tanks.js и tanks.css НЕ добавлены в кэш
+  (сделать при следующем релизе).
+
+### Как проверить локально
+1. npm start → http://localhost:3000
+2. Два окна: обычное + инкогнито (иначе один sessionKey).
+3. Оба → рулетка (🎯 Поиск скуфа).
+4. Один → 🎮 Играть → 🛡️ Танчики 1-на-1.
+5. Второй → «Принять».
+6. Должны увидеть: карту, зелёный танк (свой), красный (враг),
+   ❤️ 3, тик растёт. WASD — танк едет.
 ===== КОНЕЦ ОТЧЁТА =====
