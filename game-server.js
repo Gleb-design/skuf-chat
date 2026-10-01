@@ -22,10 +22,10 @@
 // ========================================================
 // ИМПОРТ МОДУЛЕЙ ИГР
 // ========================================================
-// Пока одна игра (battleship). Меню выбора — в будущем.
 const GAMES = {
     battleship: require('./games/battleship'),
     domino: require('./games/domino'),
+    tanks:  require('./games/tanks'),
 };
 
 module.exports = function initGame(io, deps) {
@@ -489,6 +489,4 @@ module.exports = function initGame(io, deps) {
             }
         });
     });
-
-    console.log('🚢 Морской бой: модуль загружен (роутер)');
 };
