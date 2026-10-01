@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.24.1
+Версия: v1.24.3
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.24.1 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.24.3 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.24.1
+- Стабильная версия: v1.24.3
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -79,7 +79,7 @@
   • win.mp3 (победа) — volume 0.5 (подольше)
   • lose.mp3 (поражение) — volume 0.5 (подольше)
   Подробности — в разделе 20 → «Звуки».
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v15)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v17)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -104,7 +104,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v15' (актуально с v1.22.13)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v17' (актуально с v1.24.2)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -154,7 +154,7 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v15' (актуально с v1.22.14)
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v17' (актуально с v1.24.2)
 ⚠️ ОТКАТАНО в v1.16.1...
 Оставлено как справка на будущее.
 ### Перевода сообщений / GlobeSkuf (v1.17.0)
@@ -231,6 +231,7 @@ skuf-chat/
 │   ├── game.css           ← новый (v1.22.1) — стили игры
 │   ├── domino.js          ← новый (v1.24.1) — клиентская логика Домино
 │   ├── domino.css         ← новый (v1.24.1) — стили Домино
+│   ├── game-menu.js       ← новый (v1.24.2) — меню выбора игр
 │   ├── index.html
 │   ├── style.css
 │   ├── sw.js
@@ -697,7 +698,36 @@ skuf-chat/
   • Файлы: public/domino.js, public/domino.css, public/index.html,
     games/domino.js, game-server.js.
   ⏳ Осталось: меню выбора игр (🚢 Морской бой / 🎲 Домино),
-    визуальный зигзаг змейки, звуки Домино, очки/кости-точки.    
+    визуальный зигзаг змейки, звуки Домино, очки/кости-точки. 
+- v1.24.2 — МЕНЮ ВЫБОРА ИГР
+  • Кнопка «🎮 Играть» в .private-controls вместо двух отдельных
+    («🚢 Морской бой» + «🎲 Домино»).
+  • Модалка #gameMenuModal — список игр с иконками и описаниями.
+  • Публичный API: game-menu.js. Клик по игре → socket.emit('game_invite',
+    { gameType }). Сервер создаёт игру нужного типа.
+  • Открытие: #btnPlayGame → openMenu (только в привате).
+  • Закрытие: ✖, клик по фону, Escape.
+  • Раскладка модалки: position:fixed, z-index:500, анимация fade+slide.
+  • Архитектура: добавление новой игры = пункт в HTML + обработка в GAMES.
+  • ВАЖНО: модалка в HTML должна быть ВЫШЕ <script src="game-menu.js">,
+    иначе getElementById вернёт null (уже наступили один раз).
+  • Фикс: game.js — убран btnGame + его обработчик. Проверка `if (!overlay)`.
+  • Фикс: domino.js — убран btnDomino + его обработчик.
+  • sw.js: CACHE_NAME → skuf-chat-v17, добавлен /game-menu.js.
+  • Проверка: обе игры запускаются через меню. ✅
+  • Файлы: public/game-menu.js (новый), public/index.html, public/style.css,
+    public/game.js, public/domino.js, public/sw.js.
+  ⏳ Осталось: визуальный зигзаг змейки в Домино, звуки Домино,
+    очки/кости-точки.   
+- v1.24.3 — Домино временно убрано из меню игр
+  • В public/index.html блок <button data-game="domino"> закомментирован
+    (обёрнут в <!-- ... -->). Кнопка «🚢 Морской бой» осталась.
+  • Файлы games/domino.js, public/domino.js, public/domino.css НЕ удалены —
+    код игры на месте, чтобы легко вернуть.
+  • game-menu.js не тронут — он берёт все .game-menu-item из HTML,
+    так что одного коммента в HTML достаточно.
+  • Возврат: раскомментировать блок в index.html → Домино снова в меню.
+  • Файлы: public/index.html, report.txt.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
@@ -726,13 +756,15 @@ skuf-chat/
   (сервер + клиент).
 - ✅ Домино (v1.24.0–v1.24.1) — полностью играбельно
   (сервер + клиент + UI).
+- ✅ Меню выбора игр (v1.24.2) — «🎮 Играть» → 🚢 / 🎲.
 
 **Планируемые (по приоритету):**
 
 1. ✅ **Домино («козёл»)** — полностью играбельно (v1.24.0–v1.24.1).
-   ⏳ Меню выбора игр (~30 мин) — в бэклоге.
+   ✅ **Меню выбора игр** (v1.24.2).
    ⏳ Визуальный зигзаг змейки — в бэклоге.
    ⏳ Звуки (стук костей) — в бэклоге.
+   ⏳ Рыба: подсчёт очков в UI — в бэклоге.
 
 2. 🥈 **Точки (Dots and Boxes)** — простое, визуальное.
    - Сетка 5×5 / 7×7.
@@ -1028,7 +1060,8 @@ Render Key Value (Redis) — free tier, подходит.
 - **`public/game.js`** — клиентская логика (IIFE).
 - **`public/game.css`** — стили игры.
 - **`public/index.html`** — разметка оверлея + плашка gameInviteBar.
-- **`public/sw.js`** — /game.css, /game.js в assets, CACHE_NAME v15.
+- **`public/sw.js`** — /game.css, /game.js, /domino.css, /domino.js,
+  /game-menu.js в assets, CACHE_NAME v17.
 - **`public/style.css`** — .private-controls для мобилки (v1.22.6).
 
 ### Что добавлено в v1.22.7-v1.22.8
@@ -1136,15 +1169,23 @@ const GAMES = {
 ### Как добавить новую игру
 1. Создать games/<game>.js с контрактом выше.
 2. Добавить в GAMES в game-server.js.
-3. Создать клиентский UI (отдельно — public/game-<game>.js
-   или универсальный).
+3. Создать клиентский UI (отдельно — public/game-<game>.js).
+4. Добавить пункт в модалку #gameMenuModal (data-game="<game>").
 
-⚠️ Клиент сейчас — только под Морской бой. Для новых игр нужен
-новый UI. Универсальный клиент — задача на будущее (когда 2+ игр).
+⚠️ Клиенты отдельных игр: public/game.js (battleship),
+public/domino.js (domino). Универсальный клиент — задача на будущее.
+Меню (public/game-menu.js) — общее, только emit('game_invite', { gameType }).
 
 ### Реализованные игры
 - ✅ battleship (games/battleship.js) — Морской бой
   (клиент: public/game.js, public/game.css)
 - ✅ domino (games/domino.js) — Домино «Козёл»
   (клиент: public/domino.js, public/domino.css)
+
+### Меню выбора игр (v1.24.2)
+- #gameMenuModal в index.html.
+- public/game-menu.js: открытие по #btnPlayGame, закрытие по ✖/Escape/фон.
+- Клик по .game-menu-item[data-game] → socket.emit('game_invite', { gameType }).
+- ДОБАВЛЕНИЕ НОВОЙ ИГРЫ В МЕНЮ: вставить в .game-menu-list
+  <button class="game-menu-item" data-game="<game>">...</button>.
 ===== КОНЕЦ ОТЧЁТА =====
