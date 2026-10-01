@@ -52,6 +52,10 @@ module.exports = {
                 [player1]: { ...P1_BASE, alive: true },
                 [player2]: { ...P2_BASE, alive: true },
             },
+            inputs: {
+                [player1]: emptyInput(),
+                [player2]: emptyInput(),
+            },
             bullets: [],
             tick: 0,
             winner: null,
@@ -62,7 +66,19 @@ module.exports = {
     },
 
     handleAction(game, playerKey, action, payload) {
-        return { ok: true, events: [], finished: false };
+        if (action === 'input') {
+            // payload = { up, down, left, right, shoot }
+            game.inputs[playerKey] = {
+                up: !!payload.up,
+                down: !!payload.down,
+                left: !!payload.left,
+                right: !!payload.right,
+                shoot: !!payload.shoot,
+            };
+            return { ok: true, events: [], finished: false };
+        }
+
+        return { ok: false, events: [], finished: false };
     },
 
     isFinished(game) {
@@ -79,6 +95,11 @@ module.exports = {
             bullets: game.bullets,
             tick: game.tick,
         };
+    },
+
+    // Продвинуть игру на 1 тик. Вызывается роутером каждые 50 мс.
+    tickGame(game) {
+        tickGame(game);
     },
 };
 
@@ -225,4 +246,137 @@ function createTank(spawn) {
 function getOpponentKey(game, playerKey) {
     const keys = Object.keys(game.tanks);
     return keys.find((k) => k !== playerKey);
+}
+
+// ============ Игровой цикл ============
+
+function emptyInput() {
+    return { up: false, down: false, left: false, right: false, shoot: false };
+}
+
+/**
+ * Один тик игры (50 мс).
+ * — обновляет повороты и движение танков,
+ * — обрабатывает респавны.
+ * (Стрельба и коллизии снарядов — Этап 5.)
+ */
+function tickGame(game) {
+    game.tick += 1;
+
+    for (const key of Object.keys(game.tanks)) {
+        updateTank(game, key);
+    }
+
+    respawnTanks(game);
+}
+
+/**
+ * Обновить танк: поворот, движение, респавн.
+ */
+function updateTank(game, key) {
+    const tank = game.tanks[key];
+    const input = game.inputs[key];
+
+    // Мёртвый танк — ничего не делаем, ждём респавна.
+    if (!tank.alive) return;
+
+    const wantDir = pickDirection(input);
+    if (!wantDir) {
+        // Игрок ничего не нажал — стоим.
+        return;
+    }
+
+    // Если хотим ехать в новую сторону — поворачиваемся и стоим этот тик.
+    if (wantDir !== tank.dir) {
+        tank.dir = wantDir;
+        return;
+    }
+
+    // Едем только каждые TANK_SPEED_TICKS тиков.
+    if (game.tick % TANK_SPEED_TICKS !== 0) return;
+
+    const { dx, dy } = dirToDelta(tank.dir);
+    const nx = tank.x + dx;
+    const ny = tank.y + dy;
+
+    if (canMoveTo(game, key, nx, ny)) {
+        tank.x = nx;
+        tank.y = ny;
+    }
+}
+
+/**
+ * Определить желаемое направление по вводу.
+ * Приоритет: сначала «новая» сторона относительно текущего направления —
+ * но у нас нет текущего здесь, поэтому берём в порядке:
+ * up → down → left → right.
+ * Для простоты — последняя нажатая клавиша побеждает.
+ * Мы не знаем порядок нажатий, поэтому фиксированный приоритет.
+ */
+function pickDirection(input) {
+    if (input.up) return 'up';
+    if (input.down) return 'down';
+    if (input.left) return 'left';
+    if (input.right) return 'right';
+    return null;
+}
+
+function dirToDelta(dir) {
+    switch (dir) {
+        case 'up': return { dx: 0, dy: -1 };
+        case 'down': return { dx: 0, dy: 1 };
+        case 'left': return { dx: -1, dy: 0 };
+        case 'right': return { dx: 1, dy: 0 };
+        default: return { dx: 0, dy: 0 };
+    }
+}
+
+/**
+ * Можно ли танку `key` встать в клетку (nx, ny)?
+ * Проходимы: пусто, кусты.
+ * Непроходимы: кирпич, бетон, вода, база, другой танк.
+ */
+function canMoveTo(game, key, nx, ny) {
+    if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) return false;
+
+    const tile = game.map[ny][nx];
+    if (tile === TILE_BRICK) return false;
+    if (tile === TILE_STEEL) return false;
+    if (tile === TILE_WATER) return false;
+    if (tile === TILE_BASE) return false;
+
+    // Другой танк?
+    const opponentKey = getOpponentKey(game, key);
+    const opp = game.tanks[opponentKey];
+    if (opp && opp.alive && opp.x === nx && opp.y === ny) return false;
+
+    return true;
+}
+
+/**
+ * Возродить танки, у которых наступило время респавна.
+ * (Пока без стрельбы — просто ставим на стартовую позицию.)
+ */
+function respawnTanks(game) {
+    const spawns = { p1: null, p2: null }; // заполним по ходу
+    // Нам неизвестно, какой ключ — player1 или player2.
+    // Используем порядок ключей в game.tanks.
+    const keys = Object.keys(game.tanks);
+
+    // Спавны жёстко зашиты по позициям: первый игрок — P1_SPAWN, второй — P2_SPAWN.
+    // Так как порядок ключей сохраняется с момента создания, это работает.
+    const spawnList = [P1_SPAWN, P2_SPAWN];
+
+    keys.forEach((key, idx) => {
+        const tank = game.tanks[key];
+        if (tank.alive) return;
+        if (game.tick < tank.respawnAt) return;
+
+        const spawn = spawnList[idx];
+        tank.x = spawn.x;
+        tank.y = spawn.y;
+        tank.dir = spawn.dir;
+        tank.alive = true;
+        tank.cooldown = 0;
+    });
 }
