@@ -376,31 +376,5 @@
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     }
-
-    // ========================================================
-    // ЗАГРУЗКА
-    // ========================================================
-
-        // ========================================================
-    // КНОПКА «🎲 ДОМИНО» В ПРИВАТЕ
-    // ========================================================
-    const btnDomino = document.getElementById('btnDomino');
-
-    if (btnDomino) {
-        btnDomino.addEventListener('click', () => {
-            // Проверяем, что мы в привате
-            const privateControls = document.getElementById('privateControls');
-            const isPrivateMode = privateControls && !privateControls.classList.contains('hidden');
-
-            if (!isPrivateMode) {
-                console.warn('🎲 Домино: доступно только в привате 1-на-1');
-                return;
-            }
-
-            // Отправляем приглашение с типом игры
-            socket.emit('game_invite', { gameType: 'domino' });
-            // Оверлей откроется, когда соперник примет (game_started)
-        });
-    }
     console.log('🎲 Домино: клиентский модуль загружен');
 })();

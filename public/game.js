@@ -68,10 +68,10 @@
     const readyBtn = document.getElementById('gameReadyBtn');
     const rematchBtn = document.getElementById('gameRematchBtn');
     const statusMsgEl = document.getElementById('gameStatusMsg');
-    const btnGame = document.getElementById('btnGame');
+   // btnGame удалён из HTML (заменён на btnPlayGame + меню)
 
-    if (!overlay || !btnGame) {
-        console.warn('⚠️ Морской бой: UI-элементы не найдены, модуль не запущен');
+    if (!overlay) {
+        console.warn('⚠️ Морской бой: оверлей не найден, модуль не запущен');
         return;
     }
 
@@ -399,19 +399,6 @@ function handleEnemyCellClick(x, y) {
     // ========================================================
 
     // «🚢 Морской бой» в .private-controls — отправляет приглашение
-btnGame.addEventListener('click', () => {
-    const privateControls = document.getElementById('privateControls');
-    const isPrivateMode = privateControls && !privateControls.classList.contains('hidden');
-
-    if (!isPrivateMode) {
-        console.warn('🚢 Морской бой: доступен только в привате 1-на-1');
-        return;
-    }
-
-    // Отправляем приглашение
-    socket.emit('game_invite');
-    // Оверлей НЕ открываем — его откроет game_placing, когда соперник примет
-});
 
     // Выход из оверлея
     exitBtn.addEventListener('click', () => {
