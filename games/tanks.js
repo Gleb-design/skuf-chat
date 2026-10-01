@@ -39,22 +39,25 @@ module.exports = {
     minPlayers: 2,
     maxPlayers: 2,
 
-    createInitialState(player1, player2) {
+        createInitialState(player1, player2) {
+        // ⚠️ ВАЖНО: роутер передаёт сюда ОБЪЕКТЫ игроков { socketId, username },
+        //    а не строки 'player1'/'player2'. Использовать их как ключи нельзя —
+        //    получится [object Object]. Поэтому жёстко используем строки.
         const map = generateMap();
 
         return {
             map,
             tanks: {
-                [player1]: createTank(P1_SPAWN),
-                [player2]: createTank(P2_SPAWN),
+                player1: createTank(P1_SPAWN),
+                player2: createTank(P2_SPAWN),
             },
             bases: {
-                [player1]: { ...P1_BASE, alive: true },
-                [player2]: { ...P2_BASE, alive: true },
+                player1: { ...P1_BASE, alive: true },
+                player2: { ...P2_BASE, alive: true },
             },
             inputs: {
-                [player1]: emptyInput(),
-                [player2]: emptyInput(),
+                player1: emptyInput(),
+                player2: emptyInput(),
             },
             bullets: [],
             tick: 0,
@@ -67,9 +70,10 @@ module.exports = {
     },
 
     handleAction(game, playerKey, action, payload) {
+        const state = game.state;
         if (action === 'input') {
             // payload = { up, down, left, right, shoot }
-            game.inputs[playerKey] = {
+            state.inputs[playerKey] = {
                 up: !!payload.up,
                 down: !!payload.down,
                 left: !!payload.left,
@@ -87,14 +91,15 @@ module.exports = {
     },
 
     serializeFor(game, playerKey) {
+        const state = game.state || game;
         return {
-            map: game.map,
-            myTank: game.tanks[playerKey],
-            opponentTank: game.tanks[getOpponentKey(game, playerKey)],
-            myBase: game.bases[playerKey],
-            opponentBase: game.bases[getOpponentKey(game, playerKey)],
-            bullets: game.bullets,
-            tick: game.tick,
+            map: state.map,
+            myTank: state.tanks[playerKey],
+            opponentTank: state.tanks[getOpponentKey(state, playerKey)],
+            myBase: state.bases[playerKey],
+            opponentBase: state.bases[getOpponentKey(state, playerKey)],
+            bullets: state.bullets,
+            tick: state.tick,
         };
     },
 

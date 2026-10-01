@@ -1,0 +1,129 @@
+/* ========================================================
+   public/tanks.css — стили для игры «Танчики 1-на-1» (v1.25.4)
+   ======================================================== */
+
+.tanks-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 15, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 600;
+    padding: 16px;
+    gap: 12px;
+    animation: tanksFadeIn 0.25s ease;
+}
+
+.tanks-overlay.hidden {
+    display: none !important;
+}
+
+@keyframes tanksFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+/* ----- Шапка ----- */
+.tanks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 700px;
+    padding: 0 8px;
+}
+
+.tanks-header h3 {
+    margin: 0;
+    color: #ffd54f;
+    font-size: 22px;
+    text-shadow: 0 0 10px rgba(255, 213, 79, 0.4);
+}
+
+.tanks-header button {
+    background: #472b6d;
+    color: #fff;
+    border: none;
+    font-size: 18px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.tanks-header button:hover {
+    background: #594582;
+}
+
+/* ----- Инфо-строка ----- */
+.tanks-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    color: #ddd;
+    font-size: 15px;
+    padding: 0 8px;
+}
+
+.tanks-badge {
+    background: rgba(255, 213, 79, 0.15);
+    border: 1px solid rgba(255, 213, 79, 0.35);
+    color: #ffd54f;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-weight: 600;
+}
+
+/* ----- Сцена (канвас) ----- */
+.tanks-stage {
+    background: #1a1a20;
+    border: 3px solid #594582;
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 0 30px rgba(89, 69, 130, 0.5);
+    line-height: 0; /* чтобы не было отступа под canvas */
+}
+
+#tanksCanvas {
+    display: block;
+    background: #0d0d0d;
+    border-radius: 6px;
+    image-rendering: pixelated; /* чёткая пиксельная картинка */
+}
+
+/* ----- Подсказка по управлению ----- */
+.tanks-controls-hint {
+    color: #999;
+    font-size: 13px;
+    padding: 4px 8px;
+    text-align: center;
+}
+
+.tanks-controls-hint b {
+    color: #ffd54f;
+}
+
+/* ----- Мобилка (адаптив) ----- */
+@media (max-width: 700px) {
+    .tanks-stage {
+        padding: 4px;
+    }
+
+    #tanksCanvas {
+        width: 90vw;
+        height: 90vw;
+        max-width: 500px;
+        max-height: 500px;
+    }
+
+    .tanks-header h3 {
+        font-size: 18px;
+    }
+
+    .tanks-info {
+        font-size: 13px;
+        gap: 10px;
+    }
+}

@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- SEO: title и description -->
   <title>Анонимный чат без регистрации — Skuf Chat 🍻</title>
-  <meta name="description" content="Анонимный чат без регистрации. Заходи в гараж, найди собеседника для разговора за жизнь — без имён, без правил. Только мужики, пиво и честные разговоры.">
-  <meta name="keywords" content="анонимный чат, чат без регистрации, найти собеседника, чат рулетка, поговорить анонимно, чат для мужиков, skuf chat">
+  <meta name="description"
+    content="Анонимный чат без регистрации. Заходи в гараж, найди собеседника для разговора за жизнь — без имён, без правил. Только мужики, пиво и честные разговоры.">
+  <meta name="keywords"
+    content="анонимный чат, чат без регистрации, найти собеседника, чат рулетка, поговорить анонимно, чат для мужиков, skuf chat">
   <meta name="robots" content="index, follow">
   <meta name="language" content="Russian">
   <link rel="canonical" href="https://skuf-chat.xyz/">
 
   <!-- Open Graph (Telegram, WhatsApp, Discord, VK) -->
   <meta property="og:title" content="Skuf Chat — Анонимный чат без регистрации 🍻">
-  <meta property="og:description" content="Заходи в гараж, найди собеседника. Без регистрации, без имён — только скуфы, пиво и разговоры за жизнь.">
+  <meta property="og:description"
+    content="Заходи в гараж, найди собеседника. Без регистрации, без имён — только скуфы, пиво и разговоры за жизнь.">
   <meta property="og:image" content="https://skuf-chat.xyz/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -34,35 +38,37 @@
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="apple-touch-icon" href="/icon.png">
   <link rel="stylesheet" href="domino.css">
+  <link rel="stylesheet" href="tanks.css">
 </head>
+
 <body>
-<div class="app-container">
-  <!-- Боковая (или верхняя на мобилках) панель — теперь ТУТ ТОЛЬКО КНОПКИ -->
-  <aside class="sidebar">
-    <nav class="chat-modes">
-      <button class="mode-btn active" id="btnGeneral"><span>🍻</span> Общая флудилка</button>
-      <button class="mode-btn" id="btnPrivate"><span>🎯</span> Поиск скуфа</button>
-    </nav>
-  </aside>
+  <div class="app-container">
+    <!-- Боковая (или верхняя на мобилках) панель — теперь ТУТ ТОЛЬКО КНОПКИ -->
+    <aside class="sidebar">
+      <nav class="chat-modes">
+        <button class="mode-btn active" id="btnGeneral"><span>🍻</span> Общая флудилка</button>
+        <button class="mode-btn" id="btnPrivate"><span>🎯</span> Поиск скуфа</button>
+      </nav>
+    </aside>
 
-  <!-- Основная зона чата -->
-  <main class="chat-area">
-    <!-- Шапка чата -->
-    <header class="chat-header">
-            <div class="header-top-line">
-        <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
-        <div class="header-actions">
-          <button class="mini-donate-btn" id="btnDonate" title="Скинуть скуфу на пиво">🍺</button>
-          <button class="mini-sound-btn" id="btnSound" title="Фоновый звук гаража">🔇</button>
-          <button class="mini-flush-btn" onclick="location.reload()" title="Смыть историю">🧼</button>
+    <!-- Основная зона чата -->
+    <main class="chat-area">
+      <!-- Шапка чата -->
+      <header class="chat-header">
+        <div class="header-top-line">
+          <h2 id="chatTitle">📢 Общая флудилка (Скуф-Курилка)</h2>
+          <div class="header-actions">
+            <button class="mini-donate-btn" id="btnDonate" title="Скинуть скуфу на пиво">🍺</button>
+            <button class="mini-sound-btn" id="btnSound" title="Фоновый звук гаража">🔇</button>
+            <button class="mini-flush-btn" onclick="location.reload()" title="Смыть историю">🧼</button>
+          </div>
         </div>
-      </div>
-      
-      <div class="online-counter" id="onlineCounter">🍺 Сейчас в гараже: <strong>...</strong></div>
-      <div class="typing-indicator" id="typingIndicator"></div>
-    </header>
 
-        <!-- Кнопки управления приватным чатом (появляются только в режиме рулетки) -->
+        <div class="online-counter" id="onlineCounter">🍺 Сейчас в гараже: <strong>...</strong></div>
+        <div class="typing-indicator" id="typingIndicator"></div>
+      </header>
+
+      <!-- Кнопки управления приватным чатом (появляются только в режиме рулетки) -->
       <div class="private-controls hidden" id="privateControls">
         <button id="btnNextSkuf">🔄 Следующий скуф</button>
         <button id="btnPlayGame" title="Играть">🎮 Играть</button>
@@ -70,155 +76,177 @@
       </div>
 
 
-    <!-- Окна с сообщениями -->
-    <div class="messages-wrapper">
+      <!-- Окна с сообщениями -->
+      <div class="messages-wrapper">
         <div class="messages-container" id="generalMessagesBox">
-            <div class="system-msg">Добро пожаловать в Главный Гараж.</div>
+          <div class="system-msg">Добро пожаловать в Главный Гараж.</div>
         </div>
 
         <div class="messages-container" id="privateMessagesBox" style="display: none;">
-            <div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>
+          <div class="system-msg">Поиск собеседника... Налейте пока квасу.</div>
         </div>
-    </div>
-
-    <!-- Зона ввода сообщения -->
-    <footer class="chat-input-area">
-      <!-- Новое место для имени пользователя: аккуратная плашка над инпутом -->
-<div class="user-bottom-profile">
-<span>Вы вошли как: <strong id="myUsername">Загрузка...</strong></span>
-</div>
-
-      <!-- Плашка «Ответ на: …» (скрыта по умолчанию) -->
-      <div id="replyTargetBar" class="reply-target-bar hidden">
-        <span class="reply-target-label">↩️ Ответ на:</span>
-        <span class="reply-target-text" id="replyTargetText"></span>
-        <button class="reply-target-cancel" id="replyTargetCancel" type="button" title="Отменить ответ">✕</button>
       </div>
 
-            <!-- Плашка приглашения в приват (скрыта по умолчанию) -->
-      <div id="privateInviteBar" class="private-invite-bar hidden">
-        <span class="private-invite-icon">🎯</span>
-        <span class="private-invite-text" id="privateInviteText"></span>
-        <button class="invite-accept-btn" id="inviteAcceptBtn" type="button">Принять</button>
-        <button class="invite-decline-btn" id="inviteDeclineBtn" type="button">Отклонить</button>
-      </div>
+      <!-- Зона ввода сообщения -->
+      <footer class="chat-input-area">
+        <!-- Новое место для имени пользователя: аккуратная плашка над инпутом -->
+        <div class="user-bottom-profile">
+          <span>Вы вошли как: <strong id="myUsername">Загрузка...</strong></span>
+        </div>
 
-      <!-- Плашка приглашения в игру (Морской бой) -->
-      <div id="gameInviteBar" class="game-invite-bar hidden">
-        <span class="game-invite-icon">🚢</span>
-        <span class="game-invite-text" id="gameInviteText"></span>
-        <button class="invite-accept-btn" id="gameInviteAcceptBtn" type="button">Принять</button>
-        <button class="invite-decline-btn" id="gameInviteDeclineBtn" type="button">Отклонить</button>
-      </div>
+        <!-- Плашка «Ответ на: …» (скрыта по умолчанию) -->
+        <div id="replyTargetBar" class="reply-target-bar hidden">
+          <span class="reply-target-label">↩️ Ответ на:</span>
+          <span class="reply-target-text" id="replyTargetText"></span>
+          <button class="reply-target-cancel" id="replyTargetCancel" type="button" title="Отменить ответ">✕</button>
+        </div>
 
-      <!-- Плашка ожидания ответа на приглашение в игру -->
-<div id="gameWaitingBar" class="game-waiting-bar hidden">
-  <span class="game-waiting-icon">⏳</span>
-  <span class="game-waiting-text" id="gameWaitingText">Ждём ответа на приглашение в игру...</span>
-  <button class="game-waiting-cancel" id="gameWaitingCancelBtn" type="button" title="Отменить">✕</button>
-</div>
-      
-            <div class="input-row">
-        <button id="emojiBtn" class="emoji-btn" type="button" title="Смайлы">😊</button>
-        <input type="text" id="messageInput" placeholder="Написать в чат..." autocomplete="off">
-        <button id="sendBtn">Отправить 🚀</button>
-      </div>
+        <!-- Плашка приглашения в приват (скрыта по умолчанию) -->
+        <div id="privateInviteBar" class="private-invite-bar hidden">
+          <span class="private-invite-icon">🎯</span>
+          <span class="private-invite-text" id="privateInviteText"></span>
+          <button class="invite-accept-btn" id="inviteAcceptBtn" type="button">Принять</button>
+          <button class="invite-decline-btn" id="inviteDeclineBtn" type="button">Отклонить</button>
+        </div>
 
-      <!-- Панель смайлов (скрыта по умолчанию) -->
-      <div id="emojiPanel" class="emoji-panel hidden">
-        <!-- Смайлы вставит client.js при загрузке -->
-      </div>
-    </footer>
-  </main>
-</div>
+        <!-- Плашка приглашения в игру (Морской бой) -->
+        <div id="gameInviteBar" class="game-invite-bar hidden">
+          <span class="game-invite-icon">🚢</span>
+          <span class="game-invite-text" id="gameInviteText"></span>
+          <button class="invite-accept-btn" id="gameInviteAcceptBtn" type="button">Принять</button>
+          <button class="invite-decline-btn" id="gameInviteDeclineBtn" type="button">Отклонить</button>
+        </div>
 
-<!-- Оверлей Морского боя (скрыт по умолчанию) -->
-<div id="gameOverlay" class="game-overlay hidden">
-  <div class="game-header">
-    <h3 id="gameTitle">🚢 Морской бой</h3>
-    <button id="gameExitBtn" title="Выйти">✖</button>
+        <!-- Плашка ожидания ответа на приглашение в игру -->
+        <div id="gameWaitingBar" class="game-waiting-bar hidden">
+          <span class="game-waiting-icon">⏳</span>
+          <span class="game-waiting-text" id="gameWaitingText">Ждём ответа на приглашение в игру...</span>
+          <button class="game-waiting-cancel" id="gameWaitingCancelBtn" type="button" title="Отменить">✕</button>
+        </div>
+
+        <div class="input-row">
+          <button id="emojiBtn" class="emoji-btn" type="button" title="Смайлы">😊</button>
+          <input type="text" id="messageInput" placeholder="Написать в чат..." autocomplete="off">
+          <button id="sendBtn">Отправить 🚀</button>
+        </div>
+
+        <!-- Панель смайлов (скрыта по умолчанию) -->
+        <div id="emojiPanel" class="emoji-panel hidden">
+          <!-- Смайлы вставит client.js при загрузке -->
+        </div>
+      </footer>
+    </main>
   </div>
 
-  <div class="game-info">
-    <span id="gameOpponentName">Соперник: —</span>
-    <span id="gameTurnIndicator"></span>
-    <span id="gameTimer" class="game-timer hidden">0:00</span>
-  </div>
-
-<!-- Табы для переключения полей (только на мобилке) -->
-<div class="game-board-tabs">
-  <button class="game-board-tab active" data-board="my">🎯 Моё поле</button>
-  <button class="game-board-tab" data-board="enemy">👁 Поле врага</button>
-</div>
-
-  <!-- Поля -->
-  <div class="game-boards">
-    <div class="game-board-wrapper" data-board-wrapper="my">
-      <h4>Твоё поле</h4>
-      <div id="myBoard" class="game-board"></div>
+  <!-- Оверлей Морского боя (скрыт по умолчанию) -->
+  <div id="gameOverlay" class="game-overlay hidden">
+    <div class="game-header">
+      <h3 id="gameTitle">🚢 Морской бой</h3>
+      <button id="gameExitBtn" title="Выйти">✖</button>
     </div>
-    <div class="game-board-wrapper" data-board-wrapper="enemy">
-      <h4>Поле врага</h4>
-      <div id="enemyBoard" class="game-board"></div>
+
+    <div class="game-info">
+      <span id="gameOpponentName">Соперник: —</span>
+      <span id="gameTurnIndicator"></span>
+      <span id="gameTimer" class="game-timer hidden">0:00</span>
     </div>
-  </div>
 
-  <div class="game-controls">
-    <button id="gameRandomBtn" class="hidden">🎲 Расставить случайно</button>
-    <button id="gameReadyBtn" class="hidden">✅ Готов</button>
-    <button id="gameRematchBtn" class="hidden">🔄 Ещё раз</button>
-    <div id="gameStatusMsg"></div>
-  </div>
-
-  <!-- Мини-чат во время игры -->
-  <div class="game-chat" id="gameChat">
-    <div class="game-chat-log" id="gameChatLog"></div>
-    <div class="game-chat-input">
-      <input type="text" id="gameChatInput" placeholder="Сказать сопернику..." maxlength="200" autocomplete="off">
-      <button type="button" id="gameChatSendBtn">➤</button>
+    <!-- Табы для переключения полей (только на мобилке) -->
+    <div class="game-board-tabs">
+      <button class="game-board-tab active" data-board="my">🎯 Моё поле</button>
+      <button class="game-board-tab" data-board="enemy">👁 Поле врага</button>
     </div>
-  </div>
-</div>
 
-<!-- Оверлей Домино (скрыт по умолчанию) -->
-<div id="dominoOverlay" class="domino-overlay hidden">
-  <div class="domino-header">
-    <h3>🎲 Домино</h3>
-    <button id="dominoExitBtn" title="Выйти">✖</button>
-  </div>
+    <!-- Поля -->
+    <div class="game-boards">
+      <div class="game-board-wrapper" data-board-wrapper="my">
+        <h4>Твоё поле</h4>
+        <div id="myBoard" class="game-board"></div>
+      </div>
+      <div class="game-board-wrapper" data-board-wrapper="enemy">
+        <h4>Поле врага</h4>
+        <div id="enemyBoard" class="game-board"></div>
+      </div>
+    </div>
 
-  <div class="domino-info">
-    <span id="dominoOpponent">Соперник: —</span>
-    <span id="dominoOpponentCount" class="domino-badge">🀄 0</span>
-    <span id="dominoBazaarCount" class="domino-badge">🃏 0</span>
-  </div>
+    <div class="game-controls">
+      <button id="gameRandomBtn" class="hidden">🎲 Расставить случайно</button>
+      <button id="gameReadyBtn" class="hidden">✅ Готов</button>
+      <button id="gameRematchBtn" class="hidden">🔄 Ещё раз</button>
+      <div id="gameStatusMsg"></div>
+    </div>
 
-  <div class="domino-board" id="dominoBoard">
-    <!-- Здесь будет змейка -->
-  </div>
-
-  <div class="domino-controls">
-    <button id="dominoDrawBtn" class="hidden">🃏 Взять из базара</button>
-    <button id="dominoPassBtn" class="hidden">⏭ Пас</button>
-    <div id="dominoStatusMsg"></div>
-  </div>
-
-  <div class="domino-hand" id="dominoHand">
-    <!-- Здесь будут кости игрока -->
-  </div>
-
-  <!-- Мини-чат (переиспользуем gameChat, но отдельный DOM для домино) -->
-  <div class="game-chat" id="dominoChat">
-    <div class="game-chat-log" id="dominoChatLog"></div>
-    <div class="game-chat-input">
-      <input type="text" id="dominoChatInput" placeholder="Сказать сопернику..." maxlength="200" autocomplete="off">
-      <button type="button" id="dominoChatSendBtn">➤</button>
+    <!-- Мини-чат во время игры -->
+    <div class="game-chat" id="gameChat">
+      <div class="game-chat-log" id="gameChatLog"></div>
+      <div class="game-chat-input">
+        <input type="text" id="gameChatInput" placeholder="Сказать сопернику..." maxlength="200" autocomplete="off">
+        <button type="button" id="gameChatSendBtn">➤</button>
+      </div>
     </div>
   </div>
+
+  <!-- Оверлей Домино (скрыт по умолчанию) -->
+  <div id="dominoOverlay" class="domino-overlay hidden">
+    <div class="domino-header">
+      <h3>🎲 Домино</h3>
+      <button id="dominoExitBtn" title="Выйти">✖</button>
+    </div>
+
+    <div class="domino-info">
+      <span id="dominoOpponent">Соперник: —</span>
+      <span id="dominoOpponentCount" class="domino-badge">🀄 0</span>
+      <span id="dominoBazaarCount" class="domino-badge">🃏 0</span>
+    </div>
+
+    <div class="domino-board" id="dominoBoard">
+      <!-- Здесь будет змейка -->
+    </div>
+
+    <div class="domino-controls">
+      <button id="dominoDrawBtn" class="hidden">🃏 Взять из базара</button>
+      <button id="dominoPassBtn" class="hidden">⏭ Пас</button>
+      <div id="dominoStatusMsg"></div>
+    </div>
+
+    <div class="domino-hand" id="dominoHand">
+      <!-- Здесь будут кости игрока -->
+    </div>
+
+    <!-- Мини-чат (переиспользуем gameChat, но отдельный DOM для домино) -->
+    <div class="game-chat" id="dominoChat">
+      <div class="game-chat-log" id="dominoChatLog"></div>
+      <div class="game-chat-input">
+        <input type="text" id="dominoChatInput" placeholder="Сказать сопернику..." maxlength="200" autocomplete="off">
+        <button type="button" id="dominoChatSendBtn">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Оверлей Танчиков (скрыт по умолчанию) -->
+<div id="tanksOverlay" class="tanks-overlay hidden">
+  <div class="tanks-header">
+    <h3>🛡️ Танчики 1-на-1</h3>
+    <button id="tanksExitBtn" title="Выйти">✖</button>
+  </div>
+
+  <div class="tanks-info">
+    <span id="tanksOpponent">Соперник: —</span>
+    <span id="tanksLives" class="tanks-badge">❤️ 3</span>
+    <span id="tanksTick" class="tanks-badge">⏱ 0</span>
+  </div>
+
+  <!-- Сцена: канвас -->
+  <div class="tanks-stage">
+    <canvas id="tanksCanvas" width="650" height="650"></canvas>
+  </div>
+
+  <div class="tanks-controls-hint">
+    Управление: <b>W A S D</b> + <b>Пробел</b> (выстрелы пока не работают)
+  </div>
 </div>
 
-
-<!-- Popup действий с сообщением (только на мобилке, ≤768px) -->
+  <!-- Popup действий с сообщением (только на мобилке, ≤768px) -->
   <div id="msgActionPopup" class="msg-action-popup hidden">
     <button class="msg-action-item" id="popupReplyBtn" type="button">
       <span class="msg-action-icon">↩️</span>
@@ -230,22 +258,29 @@
     </button>
   </div>
 
-<!-- Модалка выбора игры -->
-<div id="gameMenuModal" class="game-menu-modal hidden">
-  <div class="game-menu-content">
-    <div class="game-menu-header">
-      <h3>🎮 Выбери игру</h3>
-      <button id="gameMenuCloseBtn" class="game-menu-close" title="Закрыть">✖</button>
-    </div>
-    <div class="game-menu-list">
-      <button class="game-menu-item" data-game="battleship">
-        <span class="game-menu-icon">🚢</span>
-        <span class="game-menu-info">
-          <span class="game-menu-name">Морской бой</span>
-          <span class="game-menu-desc">Расставь флот, потопи врага</span>
-        </span>
-      </button>
-                <!-- Временно убрано (вернём позже):
+  <!-- Модалка выбора игры -->
+  <div id="gameMenuModal" class="game-menu-modal hidden">
+    <div class="game-menu-content">
+      <div class="game-menu-header">
+        <h3>🎮 Выбери игру</h3>
+        <button id="gameMenuCloseBtn" class="game-menu-close" title="Закрыть">✖</button>
+      </div>
+      <div class="game-menu-list">
+        <button class="game-menu-item" data-game="battleship">
+          <span class="game-menu-icon">🚢</span>
+          <span class="game-menu-info">
+            <span class="game-menu-name">Морской бой</span>
+            <span class="game-menu-desc">Расставь флот, потопи врага</span>
+          </span>
+        </button>
+        <button class="game-menu-item" data-game="tanks">
+          <span class="game-menu-icon">🛡️</span>
+          <span class="game-menu-info">
+            <span class="game-menu-name">Танчики 1-на-1</span>
+            <span class="game-menu-desc">Уничтожь базу врага, защищай свою</span>
+          </span>
+        </button>
+        <!-- Временно убрано (вернём позже):
                 <button class="game-menu-item" data-game="domino">
                     <span class="game-menu-icon">🎲</span>
                     <span class="game-menu-info">
@@ -254,10 +289,10 @@
                     </span>
                 </button>
                 -->
-      <!-- Здесь позже появятся: 📦 Точки, ⚫ Шашки -->
+        <!-- Здесь позже появятся: 📦 Точки, ⚫ Шашки -->
+      </div>
     </div>
   </div>
-</div>
 
   <!-- Подключаем Socket.io (сервер отдаст этот файл автоматически) и наш клиент -->
   <script src="/socket.io/socket.io.js"></script>
@@ -265,13 +300,15 @@
   <script src="game-menu.js"></script>
   <script src="domino.js"></script>
   <script src="game.js"></script>
+  <script src="tanks.js"></script>
   <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('Виджет-система готова!'))
-      .catch((err) => console.log('Сбой PWA:', err));
-  }
-</script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('Виджет-система готова!'))
+        .catch((err) => console.log('Сбой PWA:', err));
+    }
+  </script>
 
 </body>
+
 </html>
