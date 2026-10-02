@@ -83,7 +83,7 @@
         // myKey определим по совпадению — на сервере player1 это initiator.
         // Точного признака нет, поэтому пока считаем что 'player1',
         // и корректируем по первому game_tick (там myTank != opponentTank).
-        state.myKey = 'player1';
+        state.myKey = payload.state.youAre || null;
 
                 // Скрываем блок результата (если был от прошлой игры).
         const resultBox = document.getElementById('tanksResultBox');

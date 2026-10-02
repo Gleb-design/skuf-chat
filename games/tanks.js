@@ -128,6 +128,7 @@ module.exports = {
         const state = game.state || game;
         return {
             map: state.map,
+            youAre: playerKey,                                     // ← добавили
             myTank: state.tanks[playerKey],
             opponentTank: state.tanks[getOpponentKey(state, playerKey)],
             myBase: state.bases[playerKey],
