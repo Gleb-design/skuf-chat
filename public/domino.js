@@ -3,7 +3,7 @@
 // ========================================================
 // Загружается ПОСЛЕ client.js. Использует глобальный socket.
 
-(function() {
+(function () {
     'use strict';
 
     // ========================================================
@@ -241,7 +241,9 @@
     // ========================================================
 
     // Игра началась (после accept)
-    socket.on('game_started', ({ gameId, state: moduleState }) => {
+        socket.on('game_started', ({ gameId, gameType, state: moduleState }) => {
+        // v1.26.2: фильтр по типу игры — иначе чужие оверлеи открываются.
+        if (gameType && gameType !== 'domino') return;
         state.gameId = gameId;
 
         // Определяем наш playerKey
@@ -320,7 +322,11 @@
     });
 
     // Игра закончилась
-    socket.on('game_finished', ({ winner, reason, fishPoints }) => {
+    socket.on('game_finished', (payload) => {
+        // Только наша игра — иначе чужие оверлеи будут открываться.
+        if (!state.gameId) return;
+        if (payload && payload.gameId && payload.gameId !== state.gameId) return;
+        const { winner, reason, fishPoints } = payload;
         state.phase = 'finished';
 
         if (winner === 'you') {

@@ -39,7 +39,7 @@ module.exports = {
     minPlayers: 2,
     maxPlayers: 2,
 
-        createInitialState(player1, player2) {
+    createInitialState(player1, player2) {
         // ⚠️ ВАЖНО: роутер передаёт сюда ОБЪЕКТЫ игроков { socketId, username },
         //    а не строки 'player1'/'player2'. Использовать их как ключи нельзя —
         //    получится [object Object]. Поэтому жёстко используем строки.
@@ -60,17 +60,18 @@ module.exports = {
                 player2: emptyInput(),
             },
             bullets: [],
+            nextBulletId: 1,        // v1.26.1: счётчик для id снарядов
             tick: 0,
             winner: null,
             finishReason: null,
             phase: 'battle',
             startedAt: Date.now(),
-            seed: Date.now(), // для отладки, чтобы понимать, какая карта выпала
+            seed: Date.now(),
         };
     },
 
     handleAction(game, playerKey, action, payload) {
-        const state = game.state;
+        const state = game.state || game;
         if (action === 'input') {
             // payload = { up, down, left, right, shoot }
             state.inputs[playerKey] = {
@@ -86,7 +87,40 @@ module.exports = {
         return { ok: false, events: [], finished: false };
     },
 
-    isFinished(game) {
+    isFinished(state) {
+        // Проверка условий победы:
+        // 1. База уничтожена → победа соперника.
+        // 2. У соперника 0 жизней → победа игрока.
+        const s = state.state || state;   // терпимо к обёртке
+
+        // Базы
+        if (!s.bases.player1.alive && s.bases.player2.alive) {
+            return { finished: true, winner: 'player2', reason: 'base_destroyed' };
+        }
+        if (!s.bases.player2.alive && s.bases.player1.alive) {
+            return { finished: true, winner: 'player1', reason: 'base_destroyed' };
+        }
+        if (!s.bases.player1.alive && !s.bases.player2.alive) {
+            // Одновременно обе — ничья (редкий случай).
+            return { finished: true, winner: null, reason: 'both_bases_destroyed' };
+        }
+
+        // Жизни танков
+        const p1 = s.tanks.player1;
+        const p2 = s.tanks.player2;
+        const p1dead = p1.lives <= 0;
+        const p2dead = p2.lives <= 0;
+
+        if (p1dead && !p2dead) {
+            return { finished: true, winner: 'player2', reason: 'tank_destroyed' };
+        }
+        if (p2dead && !p1dead) {
+            return { finished: true, winner: 'player1', reason: 'tank_destroyed' };
+        }
+        if (p1dead && p2dead) {
+            return { finished: true, winner: null, reason: 'both_tanks_destroyed' };
+        }
+
         return { finished: false, winner: null, reason: null };
     },
 
@@ -246,6 +280,7 @@ function createTank(spawn) {
         alive: true,
         respawnAt: 0,
         cooldown: 0,
+        shootCooldown: 0,   // v1.26.1: тиков до следующего возможного выстрела
     };
 }
 
@@ -269,9 +304,21 @@ function emptyInput() {
 function tickGame(game) {
     game.tick += 1;
 
+    // Уменьшаем кулдаун выстрелов у живых танков
+    for (const key of Object.keys(game.tanks)) {
+        const tank = game.tanks[key];
+        if (tank.alive && tank.shootCooldown > 0) {
+            tank.shootCooldown -= 1;
+        }
+    }
+
+    // Обновляем танки (поворот, движение, стрельба)
     for (const key of Object.keys(game.tanks)) {
         updateTank(game, key);
     }
+
+    // Двигаем снаряды и обрабатываем столкновения
+    updateBullets(game);
 
     respawnTanks(game);
 }
@@ -285,6 +332,13 @@ function updateTank(game, key) {
 
     // Мёртвый танк — ничего не делаем, ждём респавна.
     if (!tank.alive) return;
+
+    // v1.26.1: стрельба (независимо от движения).
+        // v1.26.1: стрельба (независимо от движения).
+    if (input.shoot && tank.shootCooldown === 0) {
+        spawnBullet(game, key);
+        tank.shootCooldown = 15; // 0.75 сек при 20 Гц (кулдаун всегда)
+    }
 
     const wantDir = pickDirection(input);
     if (!wantDir) {
@@ -385,4 +439,193 @@ function respawnTanks(game) {
         tank.alive = true;
         tank.cooldown = 0;
     });
+}
+
+// ============ СТРЕЛЬБА (v1.26.1) ============
+
+/**
+ * Создать снаряд перед стволом танка.
+ * У каждого танка — только 1 активный снаряд.
+ * Возвращает снаряд или null, если выстрелить нельзя.
+ */
+function spawnBullet(game, key) {
+    // Уже есть снаряд от этого игрока — нельзя.
+    const existing = game.bullets.find((b) => b.owner === key);
+    if (existing) return null;
+
+    const tank = game.tanks[key];
+    const { dx, dy } = dirToDelta(tank.dir);
+
+    // Клетка прямо перед стволом.
+    const nx = tank.x + dx;
+    const ny = tank.y + dy;
+
+    // Границы поля — стрелять нельзя.
+    if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) return null;
+
+
+        // v1.26.2 fix: если в клетке перед стволом — чужой танк, бьём в упор.
+    const target = findTankAt(game, nx, ny);
+    if (target && target.key !== key) {
+        hitTank(game, target.key);
+        return null;   // снаряд не создаём, кулдаун срабатывает
+    }
+    const tile = game.map[ny][nx];
+
+    // v1.26.1 fix: выстрел в упор.
+    // Если прямо перед стволом кирпич — ломаем его, снаряд не создаём.
+    if (tile === TILE_BRICK) {
+        game.map[ny][nx] = TILE_EMPTY;
+        return null;   // пусть кулдаун сработает (танк «выстрелил в стену»)
+    }
+
+    // Бетон — не пробить, снаряд не создаём, кулдаун срабатывает.
+    if (tile === TILE_STEEL) {
+        return null;
+    }
+
+    // Всё остальное (пусто, кусты, вода, база) — снаряд создаётся
+    // и полетит дальше. Попадание в базу обработает updateBullets.
+    const bullet = {
+        id: 'b_' + game.nextBulletId++,
+        x: nx,
+        y: ny,
+        dir: tank.dir,
+        owner: key,
+    };
+
+    game.bullets.push(bullet);
+    return bullet;
+}
+
+/**
+ * Продвинуть все снаряды на 1 клетку, обработать столкновения.
+ */
+function updateBullets(game) {
+    const remaining = [];
+
+    for (const bullet of game.bullets) {
+        const { dx, dy } = dirToDelta(bullet.dir);
+        const nx = bullet.x + dx;
+        const ny = bullet.y + dy;
+
+        // Вылет за пределы поля — удаляем.
+        if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) {
+            continue;
+        }
+
+        // Проверка попадания: стена / танк / база.
+        const hit = checkBulletHit(game, bullet, nx, ny);
+        if (hit === 'continue') {
+            // Пусто — снаряд летит дальше.
+            bullet.x = nx;
+            bullet.y = ny;
+            remaining.push(bullet);
+            continue;
+        }
+
+        // Что-то произошло (стена сломалась, танк убит, база уничтожена).
+        // В любом случае снаряд исчезает, если не 'continue'.
+        // (hit === 'destroy' или 'bounce' — в любом случае удаляем).
+    }
+
+    game.bullets = remaining;
+}
+
+/**
+ * Проверить попадание снаряда в клетку (nx, ny).
+ * Возвращает:
+ *   'continue' — снаряд летит дальше (пусто, кусты, вода),
+ *   'destroy'  — снаряд уничтожается (кирпич, бетон, танк, база).
+ * Побочные эффекты:
+ *   — кирпич исчезает (TILE_BRICK → TILE_EMPTY),
+ *   — чужой танк теряет жизнь,
+ *   — база становится dead,
+ *   — свой танк игнорируется (пролетает).
+ */
+function checkBulletHit(game, bullet, nx, ny) {
+    const tile = game.map[ny][nx];
+
+    // Кирпич — ломается, снаряд исчезает.
+    if (tile === TILE_BRICK) {
+        game.map[ny][nx] = TILE_EMPTY;
+        return 'destroy';
+    }
+
+    // Бетон — не ломается, снаряд исчезает.
+    if (tile === TILE_STEEL) {
+        return 'destroy';
+    }
+
+    // Вода — снаряд пролетает.
+    if (tile === TILE_WATER) {
+        return 'continue';
+    }
+
+    // Кусты — снаряд пролетает.
+    if (tile === TILE_BUSH) {
+        return 'continue';
+    }
+
+    // База — уничтожается, снаряд исчезает.
+    if (tile === TILE_BASE) {
+        // Определяем, чья база.
+        if (game.bases.player1.x === nx && game.bases.player1.y === ny) {
+            game.bases.player1.alive = false;
+        }
+        if (game.bases.player2.x === nx && game.bases.player2.y === ny) {
+            game.bases.player2.alive = false;
+        }
+        return 'destroy';
+    }
+
+    // Танк — попадание.
+    const tank = findTankAt(game, nx, ny);
+    if (tank) {
+        if (tank.key === bullet.owner) {
+            // Свой танк — снаряд пролетает (не бьёт своего).
+            return 'continue';
+        }
+        // Чужой танк — теряет жизнь.
+        hitTank(game, tank.key);
+        return 'destroy';
+    }
+
+    // Пусто — летим дальше.
+    return 'continue';
+}
+
+/**
+ * Найти живой танк на клетке (nx, ny).
+ * Возвращает { key, tank } или null.
+ */
+function findTankAt(game, nx, ny) {
+    for (const key of Object.keys(game.tanks)) {
+        const t = game.tanks[key];
+        if (t.alive && t.x === nx && t.y === ny) {
+            return { key, tank: t };
+        }
+    }
+    return null;
+}
+
+/**
+ * Танк получает урон: lives −1, если > 0 — респавн через RESPAWN_TICKS.
+ * Если lives = 0 — танк остаётся мёртвым навсегда (для победы).
+ */
+function hitTank(game, key) {
+    const tank = game.tanks[key];
+    if (!tank.alive) return;
+
+    tank.lives -= 1;
+
+    if (tank.lives <= 0) {
+        // Всё, танк мёртв окончательно. Оставим alive: false без respawnAt.
+        tank.alive = false;
+        tank.respawnAt = Infinity;  // никогда не респавнится
+    } else {
+        // Ждём респавна.
+        tank.alive = false;
+        tank.respawnAt = game.tick + RESPAWN_TICKS;
+    }
 }

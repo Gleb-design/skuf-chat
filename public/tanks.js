@@ -67,8 +67,14 @@
     // ========================================================
     socket.on('game_started', (payload) => {
         if (!payload || !payload.state) return;
-        // Если фаза — танчики (определяем по наличию поля 'map')
-        if (!payload.state.map) return;
+        // v1.26.2: фильтр по типу игры — иначе чужие оверлеи открываются.
+        if (payload.gameType && payload.gameType !== 'tanks') return;
+
+        // v1.26.2: скрываем чужие плашки приглашения/ожидания.
+        const inviteBar = document.getElementById('gameInviteBar');
+        const waitingBar = document.getElementById('gameWaitingBar');
+        if (inviteBar) inviteBar.classList.add('hidden');
+        if (waitingBar) waitingBar.classList.add('hidden');
 
         console.log('🛡️ Танчики: игра началась', payload);
 
@@ -78,6 +84,12 @@
         // Точного признака нет, поэтому пока считаем что 'player1',
         // и корректируем по первому game_tick (там myTank != opponentTank).
         state.myKey = 'player1';
+
+                // Скрываем блок результата (если был от прошлой игры).
+        const resultBox = document.getElementById('tanksResultBox');
+        const rematchBtn = document.getElementById('tanksRematchBtn');
+        if (resultBox) resultBox.classList.add('hidden');
+        if (rematchBtn) rematchBtn.classList.add('hidden');
 
         applyState(payload.state);
         showOverlay();
@@ -94,9 +106,40 @@
 
     socket.on('game_finished', (payload) => {
         if (!state.active) return;
+        if (payload && payload.gameId && payload.gameId !== state.gameId) return;
+
+        // v1.26.3: это событие от принудительного завершения — не показываем результат.
+        if (payload && payload.reason === 'rematch') return;
+        state.active = false;
+        stopInputLoop();
+        input.up = input.down = input.left = input.right = input.shoot = false;
+        inputDirty = false;
+
+        // Показываем результат + кнопку «Ещё раз».
         const win = payload.winner === 'you';
-        alert(win ? '🏆 Победа!' : '💀 Поражение.');
-        closeOverlay();
+        const resultBox = document.getElementById('tanksResultBox');
+        const resultMsg = document.getElementById('tanksResultMsg');
+        const rematchBtn = document.getElementById('tanksRematchBtn');
+
+        if (resultMsg) {
+            resultMsg.textContent = win ? '🏆 Победа!' : '💀 Поражение...';
+        }
+        if (resultBox) resultBox.classList.remove('hidden');
+        if (rematchBtn) rematchBtn.classList.remove('hidden');
+    });
+
+    // Кнопка «🔄 Ещё раз» — отправить приглашение тому же сопернику.
+    // (обработчик вешаем один раз при загрузке модуля)
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'tanksRematchBtn') {
+            const rematchBtn = e.target;
+            rematchBtn.classList.add('hidden');
+            // Закрываем оверлей и шлём новое приглашение.
+            // gameType по умолчанию в сервере — battleship, поэтому
+            // нужно явно указать tanks.
+            closeOverlay();
+            socket.emit('game_invite', { gameType: 'tanks' });
+        }
     });
 
     socket.on('game_opponent_disconnected', () => {

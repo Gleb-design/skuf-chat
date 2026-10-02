@@ -2302,3 +2302,73 @@ a,
         width: 40px;
     }
 }
+
+/* ===== Плашки приглашения и ожидания — поверх оверлеев (v1.26.3) ===== */
+
+.game-invite-bar,
+.game-waiting-bar {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 90px;
+    z-index: 700;
+    min-width: 280px;
+    max-width: 90vw;
+    background: rgba(30, 30, 38, 0.97);
+    border: 1px solid #594582;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    animation: inviteSlideIn 0.3s ease-out;
+    flex-wrap: wrap;
+}
+
+.game-invite-bar.hidden,
+.game-waiting-bar.hidden {
+    display: none !important;
+}
+
+.game-invite-icon,
+.game-waiting-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.game-invite-text,
+.game-waiting-text {
+    flex: 1;
+    min-width: 0;
+    color: #e0e0e0;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.game-waiting-icon {
+    animation: waitingSpin 2s infinite linear;
+}
+
+@keyframes waitingSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.game-waiting-cancel {
+    background: transparent;
+    border: 1px solid #5a2a2a;
+    color: #ff8888;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+.game-waiting-cancel:hover {
+    background: #5a2a2a;
+    color: #fff;
+}

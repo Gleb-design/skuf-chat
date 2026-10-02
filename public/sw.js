@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skuf-chat-v17';
+const CACHE_NAME = 'skuf-chat-v22';
 const assets = [
   '/',
   '/index.html',
@@ -16,6 +16,8 @@ const assets = [
   '/domino.css',
   '/domino.js',
   '/game-menu.js',
+  '/tanks.css',
+  '/tanks.js',
   '/shot.mp3',
   '/hit.mp3',
   '/miss.mp3',

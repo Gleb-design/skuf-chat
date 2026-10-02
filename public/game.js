@@ -3,7 +3,7 @@
 // ========================================================
 // Загружается ПОСЛЕ client.js, использует глобальный socket.
 
-(function() {
+(function () {
     'use strict';
 
     // ========================================================
@@ -20,10 +20,10 @@
 
     const SOUNDS = {
         shot: { file: '/shot.mp3', volume: 0.3 },
-        hit:  { file: '/hit.mp3',  volume: 0.5 },
+        hit: { file: '/hit.mp3', volume: 0.5 },
         miss: { file: '/miss.mp3', volume: 0.5 },
         sunk: { file: '/sunk.mp3', volume: 0.6 },
-        win:  { file: '/win.mp3',  volume: 0.5 },
+        win: { file: '/win.mp3', volume: 0.5 },
         lose: { file: '/lose.mp3', volume: 0.5 },
     };
 
@@ -48,7 +48,7 @@
         if (!a) return;
         try {
             a.currentTime = 0;
-            a.play().catch(() => {});   // не спамим консоль
+            a.play().catch(() => { });   // не спамим консоль
         } catch (err) {
             // no-op
         }
@@ -68,7 +68,7 @@
     const readyBtn = document.getElementById('gameReadyBtn');
     const rematchBtn = document.getElementById('gameRematchBtn');
     const statusMsgEl = document.getElementById('gameStatusMsg');
-   // btnGame удалён из HTML (заменён на btnPlayGame + меню)
+    // btnGame удалён из HTML (заменён на btnPlayGame + меню)
 
     if (!overlay) {
         console.warn('⚠️ Морской бой: оверлей не найден, модуль не запущен');
@@ -111,99 +111,99 @@
     }
 
     // Отрисовывает поле с кораблями (пришло с сервера после расстановки)
-// board — 2D массив, где клетка либо null, либо { ship: true, hit: false }, либо { miss: true }
-function renderMyBoard(boardEl, board) {
-    boardEl.innerHTML = '';
-    for (let y = 0; y < BOARD_SIZE; y++) {
-        for (let x = 0; x < BOARD_SIZE; x++) {
-            const cell = document.createElement('div');
-            cell.className = 'game-cell';
-            cell.dataset.x = x;
-            cell.dataset.y = y;
+    // board — 2D массив, где клетка либо null, либо { ship: true, hit: false }, либо { miss: true }
+    function renderMyBoard(boardEl, board) {
+        boardEl.innerHTML = '';
+        for (let y = 0; y < BOARD_SIZE; y++) {
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'game-cell';
+                cell.dataset.x = x;
+                cell.dataset.y = y;
 
-            const data = board[y] && board[y][x] ? board[y][x] : null;
+                const data = board[y] && board[y][x] ? board[y][x] : null;
 
-            if (data && data.ship) {
-                cell.classList.add('ship');
-                if (data.hit) cell.classList.add('hit');
-            } else if (data && data.miss) {
-                cell.classList.add('miss');
+                if (data && data.ship) {
+                    cell.classList.add('ship');
+                    if (data.hit) cell.classList.add('hit');
+                } else if (data && data.miss) {
+                    cell.classList.add('miss');
+                }
+
+                boardEl.appendChild(cell);
             }
-
-            boardEl.appendChild(cell);
         }
     }
-}
 
-// Отрисовывает результат выстрела на конкретной клетке
-// targetEl — boardEl (myBoardEl или enemyBoardEl)
-// x, y — координаты
-// result — 'miss' | 'hit' | 'sunk'
-function renderShotResult(boardEl, x, y, result) {
-    const cell = boardEl.querySelector(`.game-cell[data-x="${x}"][data-y="${y}"]`);
-    if (!cell) return;
+    // Отрисовывает результат выстрела на конкретной клетке
+    // targetEl — boardEl (myBoardEl или enemyBoardEl)
+    // x, y — координаты
+    // result — 'miss' | 'hit' | 'sunk'
+    function renderShotResult(boardEl, x, y, result) {
+        const cell = boardEl.querySelector(`.game-cell[data-x="${x}"][data-y="${y}"]`);
+        if (!cell) return;
 
-    // Убираем предыдущие классы результата
-    cell.classList.remove('ship', 'hit', 'miss', 'sunk');
+        // Убираем предыдущие классы результата
+        cell.classList.remove('ship', 'hit', 'miss', 'sunk');
 
-    if (result === 'miss') {
-        cell.classList.add('miss');
-    } else if (result === 'hit') {
-        cell.classList.add('hit');
-    } else if (result === 'sunk') {
-        cell.classList.add('sunk');  // для потопленного — особый стиль
-    }
-}
-
-// Отрисовывает поле врага (только попадания/промахи + обработчики кликов)
-function renderEnemyBoard(boardEl, board) {
-    boardEl.innerHTML = '';
-    for (let y = 0; y < BOARD_SIZE; y++) {
-        for (let x = 0; x < BOARD_SIZE; x++) {
-            const cell = document.createElement('div');
-            cell.className = 'game-cell';
-            cell.dataset.x = x;
-            cell.dataset.y = y;
-
-            const data = board[y] && board[y][x] ? board[y][x] : null;
-
-            if (data && data.hit) {
-                cell.classList.add('hit');
-            } else if (data && data.miss) {
-                cell.classList.add('miss');
-            }
-
-            // Клик по клетке — выстрел
-            cell.addEventListener('click', () => handleEnemyCellClick(x, y));
-
-            boardEl.appendChild(cell);
+        if (result === 'miss') {
+            cell.classList.add('miss');
+        } else if (result === 'hit') {
+            cell.classList.add('hit');
+        } else if (result === 'sunk') {
+            cell.classList.add('sunk');  // для потопленного — особый стиль
         }
     }
-}
 
-// Обработчик клика по клетке врага
-function handleEnemyCellClick(x, y) {
-    // Проверки
-    if (state.phase !== 'battle') return;
-    if (!state.gameId) return;
-    if (state.turn !== 'you') {
-        statusMsgEl.textContent = '⌛ Не твой ход. Ждём соперника.';
-        return;
+    // Отрисовывает поле врага (только попадания/промахи + обработчики кликов)
+    function renderEnemyBoard(boardEl, board) {
+        boardEl.innerHTML = '';
+        for (let y = 0; y < BOARD_SIZE; y++) {
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'game-cell';
+                cell.dataset.x = x;
+                cell.dataset.y = y;
+
+                const data = board[y] && board[y][x] ? board[y][x] : null;
+
+                if (data && data.hit) {
+                    cell.classList.add('hit');
+                } else if (data && data.miss) {
+                    cell.classList.add('miss');
+                }
+
+                // Клик по клетке — выстрел
+                cell.addEventListener('click', () => handleEnemyCellClick(x, y));
+
+                boardEl.appendChild(cell);
+            }
+        }
     }
 
-    // Проверяем, что клетка не обстреляна
-    const cell = enemyBoardEl.querySelector(`.game-cell[data-x="${x}"][data-y="${y}"]`);
-    if (cell && (cell.classList.contains('hit') || cell.classList.contains('miss'))) {
-        return; // уже стреляли
+    // Обработчик клика по клетке врага
+    function handleEnemyCellClick(x, y) {
+        // Проверки
+        if (state.phase !== 'battle') return;
+        if (!state.gameId) return;
+        if (state.turn !== 'you') {
+            statusMsgEl.textContent = '⌛ Не твой ход. Ждём соперника.';
+            return;
+        }
+
+        // Проверяем, что клетка не обстреляна
+        const cell = enemyBoardEl.querySelector(`.game-cell[data-x="${x}"][data-y="${y}"]`);
+        if (cell && (cell.classList.contains('hit') || cell.classList.contains('miss'))) {
+            return; // уже стреляли
+        }
+
+        // Звук выстрела
+        playSound('shot');
+
+        // Отправляем выстрел
+        socket.emit('game_shot', { gameId: state.gameId, x, y });
+        statusMsgEl.textContent = '💥 Стреляем...';
     }
-
-    // Звук выстрела
-    playSound('shot');
-
-    // Отправляем выстрел
-    socket.emit('game_shot', { gameId: state.gameId, x, y });
-    statusMsgEl.textContent = '💥 Стреляем...';
-}
 
     // ========================================================
     // ОТКРЫТИЕ / ЗАКРЫТИЕ ОВЕРЛЕЯ
@@ -223,7 +223,7 @@ function handleEnemyCellClick(x, y) {
     }
 
     function closeOverlay() {
-            // Останавливаем таймер
+        // Останавливаем таймер
         stopTurnTimer();
         overlay.classList.add('hidden');
         // Сбрасываем состояние
@@ -234,7 +234,7 @@ function handleEnemyCellClick(x, y) {
         resetBoardTabs();  // ← сброс при закрытии
     }
 
-        // ========================================================
+    // ========================================================
     // ТАЙМЕР ХОДА
     // ========================================================
     // IDLE_TIMEOUT_MS должен совпадать с game-server.js (60 сек).
@@ -300,7 +300,7 @@ function handleEnemyCellClick(x, y) {
         }
     }
 
-        // ========================================================
+    // ========================================================
     // ТАБЫ ПЕРЕКЛЮЧЕНИЯ ПОЛЕЙ (мобилка)
     // ========================================================
 
@@ -333,7 +333,7 @@ function handleEnemyCellClick(x, y) {
         gameBoards.classList.remove('show-enemy');
     }
 
-        // ========================================================
+    // ========================================================
     // МИНИ-ЧАТ
     // ========================================================
 
@@ -412,7 +412,7 @@ function handleEnemyCellClick(x, y) {
     // SOCKET-СОБЫТИЯ (пока только базовые)
     // ========================================================
 
-    socket.on('game_invite_sent', ({ toUsername }) => {
+        socket.on('game_invite_sent', ({ toUsername }) => {
         statusMsgEl.textContent = `🎯 Приглашение отправлено: ${toUsername}`;
         // Закрываем оверлей (если открыт) и показываем плашку в привате
         closeOverlay();
@@ -436,7 +436,7 @@ function handleEnemyCellClick(x, y) {
         console.warn('⚠️ game_error:', reason);
     });
 
-        // ========================================================
+    // ========================================================
     // ПРИЁМ ПРИГЛАШЕНИЯ
     // ========================================================
 
@@ -483,17 +483,17 @@ function handleEnemyCellClick(x, y) {
     }
 
     // Показывает плашку «Ждём ответа на приглашение в игру»
-function showGameWaitingBar(toUsername) {
-    if (!gameWaitingBar) return;
-    if (gameWaitingText) {
-        gameWaitingText.textContent = `Ждём ответа от ${toUsername}...`;
+    function showGameWaitingBar(toUsername) {
+        if (!gameWaitingBar) return;
+        if (gameWaitingText) {
+            gameWaitingText.textContent = `Ждём ответа от ${toUsername}...`;
+        }
+        gameWaitingBar.classList.remove('hidden');
     }
-    gameWaitingBar.classList.remove('hidden');
-}
 
-function hideGameWaitingBar() {
-    if (gameWaitingBar) gameWaitingBar.classList.add('hidden');
-}
+    function hideGameWaitingBar() {
+        if (gameWaitingBar) gameWaitingBar.classList.add('hidden');
+    }
 
     // Кнопка «Принять»
     if (gameInviteAcceptBtn) {
@@ -516,20 +516,20 @@ function hideGameWaitingBar() {
     }
 
     // Кнопка ✕ на плашке ожидания — отменить
-if (gameWaitingCancelBtn) {
-    gameWaitingCancelBtn.addEventListener('click', () => {
-        hideGameWaitingBar();
-        // Не отправляем game_decline — соперник ещё не принял.
-        // Просто скрываем плашку (игра останется в pending состоянии)
-    });
-}
+    if (gameWaitingCancelBtn) {
+        gameWaitingCancelBtn.addEventListener('click', () => {
+            hideGameWaitingBar();
+            // Не отправляем game_decline — соперник ещё не принял.
+            // Просто скрываем плашку (игра останется в pending состоянии)
+        });
+    }
 
     // ========================================================
     // SOCKET-СОБЫТИЯ ПРИГЛАШЕНИЯ
     // ========================================================
 
     // Пришло приглашение от другого игрока
-    socket.on('game_invited', ({ gameId, fromUsername }) => {
+        socket.on('game_invited', ({ gameId, fromUsername }) => {
         // Закрываем оверлей (если открыт) — чтобы игрок увидел плашку приглашения
         // внизу. Это важно для реванша: у игрока остался экран с результатом.
         if (!overlay.classList.contains('hidden')) {
@@ -546,12 +546,12 @@ if (gameWaitingCancelBtn) {
         state.gameId = gameId;
         state.phase = 'placing';
 
-            // Скрываем плашку ожидания — соперник принял
+        // Скрываем плашку ожидания — соперник принял
         hideGameWaitingBar();     // ← НОВАЯ СТРОКА
 
         // Очищаем чат при новой игре
         if (gameChatLog) gameChatLog.innerHTML = '';
-        
+
 
         // Открываем оверлей, если ещё не открыт
         if (overlay.classList.contains('hidden')) {
@@ -579,7 +579,7 @@ if (gameWaitingCancelBtn) {
         }, 2000);
     });
 
-        // ========================================================
+    // ========================================================
     // РАССТАНОВКА И СТАРТ БОЯ
     // ========================================================
 
@@ -623,7 +623,7 @@ if (gameWaitingCancelBtn) {
         statusMsgEl.textContent = 'Корабли расставлены. Жми «✅ Готов», когда готов.';
     });
 
-        // Кнопка «🔄 Ещё раз» — отправить новое приглашение тому же сопернику
+    // Кнопка «🔄 Ещё раз» — отправить новое приглашение тому же сопернику
     if (rematchBtn) {
         rematchBtn.addEventListener('click', () => {
             // Прячем кнопки результата
@@ -658,18 +658,18 @@ if (gameWaitingCancelBtn) {
         renderMyBoard(myBoardEl, myBoard);
         renderEnemyBoard(enemyBoardEl, enemyBoard);  // ← новая функция с кликами
 
-    // Показываем чей ход + пульс
-    if (turn === 'you') {
-        turnIndicatorEl.textContent = '🎯 Твой ход!';
-        turnIndicatorEl.classList.add('turn-you');   // ← НОВАЯ СТРОКА
-        statusMsgEl.textContent = 'Стреляй по полю врага.';
-    } else {
-        turnIndicatorEl.textContent = '⌛ Ход соперника';
-        turnIndicatorEl.classList.remove('turn-you');
-        statusMsgEl.textContent = 'Ждём хода соперника...';
-    }
-            // Запускаем таймер хода
-    startTurnTimer();
+        // Показываем чей ход + пульс
+        if (turn === 'you') {
+            turnIndicatorEl.textContent = '🎯 Твой ход!';
+            turnIndicatorEl.classList.add('turn-you');   // ← НОВАЯ СТРОКА
+            statusMsgEl.textContent = 'Стреляй по полю врага.';
+        } else {
+            turnIndicatorEl.textContent = '⌛ Ход соперника';
+            turnIndicatorEl.classList.remove('turn-you');
+            statusMsgEl.textContent = 'Ждём хода соперника...';
+        }
+        // Запускаем таймер хода
+        startTurnTimer();
     });
 
     // ========================================================
@@ -681,10 +681,10 @@ if (gameWaitingCancelBtn) {
         // Рисуем на поле врага
         renderShotResult(enemyBoardEl, x, y, result);
 
-    // Звук результата
-    if (result === 'miss') playSound('miss');
-    else if (result === 'hit') playSound('hit');
-    else if (result === 'sunk') playSound('sunk');
+        // Звук результата
+        if (result === 'miss') playSound('miss');
+        else if (result === 'hit') playSound('hit');
+        else if (result === 'sunk') playSound('sunk');
 
         // Обновляем ход
         if (turn) {
@@ -703,10 +703,10 @@ if (gameWaitingCancelBtn) {
                 statusMsgEl.textContent = 'Ждём хода соперника...';
             }
         }
-            // Перезапускаем таймер — ход может остаться у нас или перейти
-    if (state.phase === 'battle') {
-        startTurnTimer();
-    }
+        // Перезапускаем таймер — ход может остаться у нас или перейти
+        if (state.phase === 'battle') {
+            startTurnTimer();
+        }
     });
 
     // Соперник стрелял — результат на нашем поле
@@ -714,10 +714,10 @@ if (gameWaitingCancelBtn) {
         // Рисуем на своём поле
         renderShotResult(myBoardEl, x, y, result);
 
-            // Звук результата (соперник стрелял по нам)
-    if (result === 'miss') playSound('miss');
-    else if (result === 'hit') playSound('hit');
-    else if (result === 'sunk') playSound('sunk');
+        // Звук результата (соперник стрелял по нам)
+        if (result === 'miss') playSound('miss');
+        else if (result === 'hit') playSound('hit');
+        else if (result === 'sunk') playSound('sunk');
 
         // Обновляем ход
         if (turn) {
@@ -731,13 +731,17 @@ if (gameWaitingCancelBtn) {
                 turnIndicatorEl.classList.remove('turn-you');
             }
         }
-            // Перезапускаем таймер — соперник сходил, теперь наш ход или его
-    if (state.phase === 'battle') {
-        startTurnTimer();
-    }
+        // Перезапускаем таймер — соперник сходил, теперь наш ход или его
+        if (state.phase === 'battle') {
+            startTurnTimer();
+        }
     });
 
-    socket.on('game_finished', ({ winner, reason }) => {
+    socket.on('game_finished', (payload) => {
+        // Только наша игра — иначе чужие оверлеи будут открываться.
+        if (!state.gameId) return;
+        if (payload && payload.gameId && payload.gameId !== state.gameId) return;
+        const { winner, reason } = payload;
         if (randomBtn) randomBtn.classList.add('hidden');
         if (readyBtn) readyBtn.classList.add('hidden');
         if (turnIndicatorEl) turnIndicatorEl.classList.remove('turn-you');
@@ -761,34 +765,34 @@ if (gameWaitingCancelBtn) {
         hideGameInviteBar();
     });
 
-// ========================================================
-// RECONNECT (MVP) — обрыв интернета
-// ========================================================
+    // ========================================================
+    // RECONNECT (MVP) — обрыв интернета
+    // ========================================================
 
-socket.on('game_opponent_disconnected', ({ graceMs }) => {
-    // Соперник отвалился — показываем плашку «ждём»
-    statusMsgEl.textContent = `⚠️ Соперник отвалился. Ждём ${Math.round(graceMs / 1000)} сек...`;
-});
+    socket.on('game_opponent_disconnected', ({ graceMs }) => {
+        // Соперник отвалился — показываем плашку «ждём»
+        statusMsgEl.textContent = `⚠️ Соперник отвалился. Ждём ${Math.round(graceMs / 1000)} сек...`;
+    });
 
-socket.on('game_opponent_reconnected', () => {
-    // Соперник вернулся — убираем плашку
-    statusMsgEl.textContent = '✅ Соперник вернулся!';
-    setTimeout(() => {
-        // Восстанавливаем статус по ходу
-        if (state.turn === 'you') {
-            statusMsgEl.textContent = 'Стреляй по полю врага.';
-        } else {
-            statusMsgEl.textContent = 'Ждём хода соперника...';
-        }
-    }, 1500);
-});
+    socket.on('game_opponent_reconnected', () => {
+        // Соперник вернулся — убираем плашку
+        statusMsgEl.textContent = '✅ Соперник вернулся!';
+        setTimeout(() => {
+            // Восстанавливаем статус по ходу
+            if (state.turn === 'you') {
+                statusMsgEl.textContent = 'Стреляй по полю врага.';
+            } else {
+                statusMsgEl.textContent = 'Ждём хода соперника...';
+            }
+        }, 1500);
+    });
 
-socket.on('game_reconnected', () => {
-    // Мы вернулись в игру (но клиент может ещё не знать о ней)
-    console.log('✅ Мы вернулись в игру');
-    // ⚠️ MVP: оверлей не восстанавливаем — просто игнорируем
-});
-    
+    socket.on('game_reconnected', () => {
+        // Мы вернулись в игру (но клиент может ещё не знать о ней)
+        console.log('✅ Мы вернулись в игру');
+        // ⚠️ MVP: оверлей не восстанавливаем — просто игнорируем
+    });
+
     console.log('🚢 Морской бой: клиентский модуль загружен');
 })();
 

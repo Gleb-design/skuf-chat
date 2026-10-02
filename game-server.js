@@ -187,38 +187,57 @@ module.exports = function initGame(io, deps) {
     io.on('connection', (socket) => {
 
         // --- ПРИГЛАШЕНИЕ В ИГРУ (из привата 1-на-1) ---
-        socket.on('game_invite', (payload = {}) => {
-            // ⚠️ payload может быть { gameType: 'battleship' | 'domino' }.
-            // Если не передан — по умолчанию battleship (обратная совместимость).
-            const gameType = payload.gameType || 'battleship';
+socket.on('game_invite', (payload = {}) => {
+    const gameType = payload.gameType || 'battleship';
 
-            if (!socket.privateRoom) {
-                socket.emit('game_error', { reason: 'not_in_private' });
-                return;
-            }
-            if (socketToGame.has(socket.id)) {
-                socket.emit('game_error', { reason: 'already_in_game' });
-                return;
-            }
+    if (!socket.privateRoom) {
+        socket.emit('game_error', { reason: 'not_in_private' });
+        return;
+    }
 
-            const partner = findPartnerSocket(socket);
-            if (!partner) {
-                socket.emit('game_error', { reason: 'no_partner' });
-                return;
-            }
-            if (socketToGame.has(partner.id)) {
-                socket.emit('game_error', { reason: 'partner_busy' });
-                return;
-            }
+    // v1.26.3: принудительно завершаем старые игры этого сокета и его партнёра.
+    // Иначе после «Ещё раз» соперник получает already_in_game / partner_busy.
+    const partner = findPartnerSocket(socket);
+    if (!partner) {
+        socket.emit('game_error', { reason: 'no_partner' });
+        return;
+    }
 
-            // Выбираем модуль по типу игры
-            const gameModule = GAMES[gameType];
-            if (!gameModule) {
-                socket.emit('game_error', { reason: 'unknown_game_type' });
-                return;
+    [socket, partner].forEach((s) => {
+        const oldGameId = socketToGame.get(s.id);
+        if (oldGameId) {
+            const oldGame = games.get(oldGameId);
+            if (oldGame) {
+                oldGame.phase = 'finished';
+                if (oldGame.idleTimer) clearTimeout(oldGame.idleTimer);
+                if (oldGame.loopTimer) clearInterval(oldGame.loopTimer);
+                // Уведомляем игроков, что игра закончилась
+                io.to(oldGame.player1.socketId).emit('game_finished', {
+                    gameId: oldGame.id,
+                    winner: null,
+                    reason: 'rematch',
+                });
+                io.to(oldGame.player2.socketId).emit('game_finished', {
+                    gameId: oldGame.id,
+                    winner: null,
+                    reason: 'rematch',
+                });
+                socketToGame.delete(oldGame.player1.socketId);
+                socketToGame.delete(oldGame.player2.socketId);
+                games.delete(oldGameId);
+            } else {
+                socketToGame.delete(s.id);
             }
+        }
+    });
 
-            const gameId = generateGameId();
+    const gameModule = GAMES[gameType];
+    if (!gameModule) {
+        socket.emit('game_error', { reason: 'unknown_game_type' });
+        return;
+    }
+
+    const gameId = generateGameId();
 
             const player1 = {
                 socketId: socket.id,
@@ -259,6 +278,7 @@ module.exports = function initGame(io, deps) {
             socket.emit('game_invite_sent', {
                 gameId,
                 toUsername: partner.username,
+                gameType,
             });
         });
 
@@ -321,8 +341,16 @@ module.exports = function initGame(io, deps) {
                 const payload1 = game.module.serializeFor(game, 'player1');
                 const payload2 = game.module.serializeFor(game, 'player2');
 
-                io.to(game.player1.socketId).emit('game_started', { gameId, state: payload1 });
-                io.to(game.player2.socketId).emit('game_started', { gameId, state: payload2 });
+                                io.to(game.player1.socketId).emit('game_started', {
+                    gameId,
+                    gameType: game.type,
+                    state: payload1,
+                });
+                io.to(game.player2.socketId).emit('game_started', {
+                    gameId,
+                    gameType: game.type,
+                    state: payload2,
+                });
 
                 resetIdleTimer(game);
 

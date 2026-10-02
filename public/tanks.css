@@ -127,3 +127,46 @@
         gap: 10px;
     }
 }
+
+/* ===== Результат игры и кнопка «Ещё раз» ===== */
+.tanks-result-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.tanks-result-box.hidden {
+    display: none !important;
+}
+
+.tanks-result-msg {
+    color: #ffd54f;
+    font-size: 20px;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(255, 213, 79, 0.4);
+}
+
+.tanks-rematch-btn {
+    background: #472b6d;
+    color: #fff;
+    border: none;
+    font-size: 16px;
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.tanks-rematch-btn:hover {
+    background: #594582;
+}
+
+.tanks-rematch-btn:active {
+    transform: scale(0.97);
+}
+
+.tanks-rematch-btn.hidden {
+    display: none !important;
+}
