@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.26.3
+Версия: v1.26.4
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.26.3 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.26.4 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.26.3
+- Стабильная версия: v1.26.4
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -882,7 +882,21 @@ skuf-chat/
     В бэклоге.
   • Файлы: public/tanks.js, public/index.html, public/tanks.css,
     public/style.css, public/sw.js, game-server.js,
-    games/tanks.js, public/domino.js, public/game.js.    
+    games/tanks.js, public/domino.js, public/game.js.   
+- v1.26.4 — ФИКС: плашки приглашения по центру
+  • public/game.css: в блоках .game-invite-bar и .game-waiting-bar
+    убрано animation: inviteSlideIn 0.3s ease-out. Оно перебивало
+    transform: translateX(-50%) из style.css (game.css подключён
+    после style.css), из-за чего плашка «стартовала» справа и
+    прыгала в центр.
+  • public/style.css: у .game-invite-bar / .game-waiting-bar
+    animation: none (страховка от дублей).
+  • public/sw.js: CACHE_NAME → skuf-chat-v24.
+  • 💡 Известная проблема архитектуры: стили игровых плашек лежат
+    в ДВУХ файлах (style.css и game.css) — исторический багаж.
+    При случае вынести все общие плашки в style.css, оставить
+    в game.css только игровую сетку/доску.
+  • Файлы: public/game.css, public/style.css, public/sw.js, report.txt. 
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
@@ -1421,7 +1435,6 @@ public/domino.js (domino). Универсальный клиент — зада�
 - 🚧 Звуки: выстрел, попадание, взрыв, победа/поражение.
 - 🚧 Мобильное управление (виртуальный джойстик + кнопка огня).
 - 🚧 Таймер партии 5 минут (BATTLE_TIMEOUT_MS).
-- 🚧 Анимация плашек приглашения (translateX(-50%) в keyframes).
 
 ### Файлы
 - games/tanks.js — серверная логика Танчиков.
