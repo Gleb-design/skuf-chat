@@ -2322,7 +2322,7 @@ a,
     align-items: center;
     gap: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-    animation: inviteSlideIn 0.3s ease-out;
+    animation: none;
     flex-wrap: wrap;
 }
 

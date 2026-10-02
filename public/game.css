@@ -223,7 +223,7 @@
     border-radius: 4px;
     font-size: 13px;
     color: #ddd;
-    animation: inviteSlideIn 0.3s ease-out;
+    animation: none;
     flex-wrap: wrap;
 }
 
@@ -607,7 +607,7 @@
     border-radius: 4px;
     font-size: 13px;
     color: #ddd;
-    animation: inviteSlideIn 0.3s ease-out;
+    animation: none;
 }
 
 .game-waiting-bar.hidden {
