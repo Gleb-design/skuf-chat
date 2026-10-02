@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.26.0
+Версия: v1.26.3
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.26.0 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.26.3 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.26.0
+- Стабильная версия: v1.26.3
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -821,6 +821,68 @@ skuf-chat/
     стартовых позициях, WASD двигает танк, тик растёт (20 Гц).
   • Файлы: public/tanks.js (новый), public/tanks.css (новый),
     public/index.html, games/tanks.js, game-server.js.
+- v1.26.1 — ТАНЧИКИ: стрельба
+  • games/tanks.js: spawnBullet / updateBullets / checkBulletHit /
+    findTankAt / hitTank.
+  • 1 снаряд на танк. Кулдаун 15 тиков (0.75 сек при 20 Гц).
+  • Кирпич ломается (TILE_BRICK → TILE_EMPTY), бетон — нет,
+    вода/кусты — пролетает.
+  • Чужой танк теряет жизнь (lives −1), respawnAt = tick + 40.
+  • Свой танк игнорируется — снаряд пролетает.
+  • createTank: новое поле shootCooldown: 0.
+  • createInitialState: nextBulletId (счётчик для id снарядов).
+  • tickGame: уменьшение shootCooldown, вызов updateBullets.
+  • updateTank: если input.shoot && shootCooldown === 0 → spawnBullet.
+  • Фикс «выстрел в упор»: если перед стволом кирпич — ломаем
+    без создания снаряда (кулдаун срабатывает). Если бетон —
+    не стреляем. Если чужой танк — hitTank без снаряда.
+  • Файлы: games/tanks.js.
+
+- v1.26.2 — ФИЛЬТРЫ ПО ТИПУ ИГРЫ (универсально)
+  • Проблема: game_invited / game_invite_sent / game_started /
+    game_finished / game_placing приходили во ВСЕ клиенты
+    (game.js, domino.js, tanks.js), из-за чего чужие оверлеи
+    открывались поверх активной игры.
+  • Решение: в game-server.js во все игровые события добавлено
+    поле gameType: 'battleship' | 'domino' | 'tanks'.
+  • Каждый клиент фильтрует события по gameType:
+    - public/tanks.js: фильтр 'tanks' в game_started;
+      игнорирует game_finished если gameId не совпадает.
+    - public/domino.js: фильтр 'domino' в game_started;
+      фильтр gameId в game_finished.
+    - public/game.js: фильтр gameId в game_finished
+      (у Морского боя нет game_started, он на game_placing —
+      но gameId всё равно проверяется).
+  • При создании game_invite сервер принудительно завершает
+    старые игры сокета и его партнёра (событие game_finished
+    с reason: 'rematch', winner: null). Клиенты игнорируют
+    game_finished при reason === 'rematch'.
+  • В public/tanks.js добавлен показ плашек приглашения:
+    скрытие gameInviteBar / gameWaitingBar при game_started.
+  • Файлы: game-server.js, public/tanks.js, public/domino.js,
+    public/game.js.
+
+- v1.26.3 — ТАНЧИКИ: экран результата + плашки поверх оверлеев
+  • public/tanks.js: убран alert() при game_finished. Вместо —
+    плашка результата (tanksResultBox) и кнопка «🔄 Ещё раз»
+    (tanksRematchBtn) прямо в оверлее Танчиков.
+  • public/tanks.js: клик «Ещё раз» → closeOverlay +
+    socket.emit('game_invite', { gameType: 'tanks' }).
+  • public/index.html: добавлен блок #tanksResultBox с
+    #tanksResultMsg и #tanksRematchBtn.
+  • public/tanks.css: стили .tanks-result-box / .tanks-result-msg /
+    .tanks-rematch-btn.
+  • public/style.css: gameInviteBar и gameWaitingBar теперь
+    position: fixed; left: 50%; bottom: 90px; z-index: 700.
+    Видны ПОВЕРХ оверлеев (у оверлеев z-index: 600).
+  • public/sw.js: CACHE_NAME → skuf-chat-v22.
+  • ⏳ Известный баг: анимация inviteSlideIn в keyframes задаёт
+    transform: translateY(...), из-за чего теряется
+    translateX(-50%) — плашка «стартует» справа и прыгает в центр.
+    В бэклоге.
+  • Файлы: public/tanks.js, public/index.html, public/tanks.css,
+    public/style.css, public/sw.js, game-server.js,
+    games/tanks.js, public/domino.js, public/game.js.    
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
@@ -1080,6 +1142,11 @@ Render Key Value (Redis) — free tier, подходит.
 - **Хранилище игр:** RAM, `Map<gameId, GameState>` + `Map<socketId, gameId>`.
   Улетает при рестарте Render — не критично, игры короткие.
 - **Поле:** 10×10. Корабли: 1×4, 2×3, 3×2, 4×1 (классика).
+⚠️ v1.26.2: во все игровые события (game_invited, game_invite_sent,
+game_started, game_finished, game_placing) добавлено поле
+gameType: 'battleship' | 'domino' | 'tanks'. Каждый клиент
+фильтрует события по своему gameType, чтобы чужие оверлеи
+не открывались.
 
 ### Фазы игры
 1. **waiting** — приглашение отправлено, ждём accept/decline.
@@ -1333,19 +1400,28 @@ public/domino.js (domino). Универсальный клиент — зада�
   left,right,shoot} } каждые 50 мс, если inputDirty.
 - Мобилка: не реализована (отложена).
 
+### Что СДЕЛАНО (v1.26.1–v1.26.3)
+- ✅ Стрельба (Space, 1 снаряд на танк, кулдаун 0.75 сек).
+- ✅ Кирпич ломается, бетон — нет, вода/кусты — пролетает.
+- ✅ Урон танкам (3 жизни), респавн через 2 сек.
+- ✅ Уничтожение базы → победа/поражение.
+- ✅ Победа по нулю жизней.
+- ✅ Фикс «выстрела в упор» (кирпич и чужой танк).
+- ✅ Экран результата в оверлее Танчиков + кнопка «🔄 Ещё раз».
+- ✅ Фильтры по gameType во всех клиентах — чужие оверлеи
+  не открываются.
+- ✅ Плашки приглашения поверх оверлеев (z-index: 700).
+- ✅ Принудительное завершение старых игр при новом game_invite.
+
 ### Что НЕ реализовано (бэклог Танчиков)
-- 🚧 Стрельба: спавн снаряда по нажатию Space, полёт по сетке,
-  столкновения с кирпичом (ломает), бетоном (не ломает), водой
-  (пролетает), танком (жизнь −1), базой (конец игры).
-- 🚧 Победа/поражение: isFinished должен проверять базы/жизни.
-- 🚧 Экран итога: alert → красивый overlay со счётом.
-- 🚧 Определение myKey: сейчас 'player1' жёстко на клиенте.
-  Надо добавить youAre в serializeFor.
-- 🚧 Мобильное управление (виртуальный джойстик + кнопка выстрела).
-- 🚧 Звуки: выстрел, попадание, взрыв, победа.
-- 🚧 Кусты: сейчас рисуются как зелёные квадраты, надо — чтобы
-  танк «прятался» под ними (у соперника не отображался).
-- 🚧 Таймер партии 5 минут (ничья).
+- 🚧 myKey (кто player1 / кто player2). Сейчас на клиенте
+  жёстко 'player1' — у второго игрока свой танк отображается
+  как чужой. Фикс: в serializeFor добавить youAre: playerKey.
+- 🚧 Кусты-прятки (танк под кустом не виден сопернику).
+- 🚧 Звуки: выстрел, попадание, взрыв, победа/поражение.
+- 🚧 Мобильное управление (виртуальный джойстик + кнопка огня).
+- 🚧 Таймер партии 5 минут (BATTLE_TIMEOUT_MS).
+- 🚧 Анимация плашек приглашения (translateX(-50%) в keyframes).
 
 ### Файлы
 - games/tanks.js — серверная логика Танчиков.
