@@ -145,6 +145,25 @@
       <button id="gameExitBtn" title="Выйти">✖</button>
     </div>
 
+        <!-- v1.26.8: заставка перед стартом боя -->
+    <div class="game-intro hidden" id="gameIntro">
+      <div class="game-intro-content">
+        <div class="game-intro-title">🚢 МОРСКОЙ БОЙ</div>
+        <div class="game-intro-vs">
+          <div class="intro-player">
+            <span class="intro-player-label">Ты</span>
+            <span class="intro-player-name" id="introMyName">—</span>
+          </div>
+          <div class="intro-vs">VS</div>
+          <div class="intro-player">
+            <span class="intro-player-label">Соперник</span>
+            <span class="intro-player-name" id="introOppName">—</span>
+          </div>
+        </div>
+        <div class="game-intro-hint">Приготовиться...</div>
+      </div>
+    </div>
+
     <div class="game-info">
       <span id="gameOpponentName">Соперник: —</span>
       <span id="gameTurnIndicator"></span>

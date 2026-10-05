@@ -70,6 +70,53 @@
     const statusMsgEl = document.getElementById('gameStatusMsg');
     // btnGame удалён из HTML (заменён на btnPlayGame + меню)
 
+       // v1.26.8: заставка перед стартом боя
+    const introEl = document.getElementById('gameIntro');
+    const introMyNameEl = document.getElementById('introMyName');
+    const introOppNameEl = document.getElementById('introOppName');
+
+    // Звук заставки — играем один раз, обрезаем на 2 сек
+    const introSound = new Audio('/intro.mp3');
+    introSound.volume = 0.5;
+    introSound.preload = 'auto';
+
+    let introTimerId = null;
+
+    // Показать заставку перед боем. Вызывается из game_battle,
+    // когда seriesStarted === false (только первая партия в серии).
+    function showGameIntro(myName, oppName) {
+        if (!introEl) return;
+
+        if (introMyNameEl) introMyNameEl.textContent = myName || 'Ты';
+        if (introOppNameEl) introOppNameEl.textContent = oppName || 'Соперник';
+
+        introEl.classList.remove('hidden');
+
+        // Звук — 2 сек, потом пауза
+        try {
+            introSound.currentTime = 0;
+            introSound.play().catch(() => {});
+        } catch (err) {}
+
+        // Автоскрытие через 2 сек
+        if (introTimerId) clearTimeout(introTimerId);
+        introTimerId = setTimeout(() => {
+            hideGameIntro();
+        }, 2000);
+    }
+
+    function hideGameIntro() {
+        if (introTimerId) {
+            clearTimeout(introTimerId);
+            introTimerId = null;
+        }
+        if (introEl) introEl.classList.add('hidden');
+        try {
+            introSound.pause();
+            introSound.currentTime = 0;
+        } catch (err) {}
+    }
+
     if (!overlay) {
         console.warn('⚠️ Морской бой: оверлей не найден, модуль не запущен');
         return;
@@ -272,6 +319,8 @@
     function closeOverlay() {
         // Останавливаем таймер
         stopTurnTimer();
+                // v1.26.8: скрыть заставку, если она висит
+        hideGameIntro();
         overlay.classList.add('hidden');
         // Сбрасываем состояние
         state.gameId = null;
@@ -702,6 +751,12 @@
         state.phase = 'battle';
         // v1.26.7: новая партия — сбрасываем счётчик клеток
         resetCellsForNewGame();
+                // v1.26.8: показываем заставку только первую партию в серии
+        if (!state.seriesStarted) {
+            const myNameFromDom = document.getElementById('myUsername');
+            const myName = (myNameFromDom && myNameFromDom.textContent) || 'Ты';
+            showGameIntro(myName, opponentName || 'Соперник');
+        }
 
         state.turn = turn;
         state.myBoard = myBoard;

@@ -5,7 +5,7 @@
 .game-overlay {
     position: fixed;       /* ← fixed — вырывается из потока */
     inset: 0;
-    z-index: 2000;         /* ← выше всего: сайдбара, плашек, попапов (кроме очень высоких) */
+    z-index: 200;         /* ← выше всего: сайдбара, плашек, попапов (кроме очень высоких) */
     background: rgba(20, 16, 12, 0.96);
     display: flex;
     flex-direction: column;
@@ -788,4 +788,135 @@
         padding: 6px 8px;
         font-size: 12px;
     }
+}
+
+/* ======================================================= */
+/* ЗАСТАВКА ПЕРЕД СТАРТОМ БОЯ (v1.26.8)                    */
+/* ======================================================= */
+
+.game-intro {
+    position: absolute;
+    inset: 0;
+    z-index: 900;                    /* поверх всего в оверлее, но НЕ поверх gameInviteBar (700)… */
+    background: radial-gradient(circle at 50% 40%, #1a2438 0%, #0a0e18 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    animation: introFadeIn 0.35s ease-out;
+    pointer-events: auto;
+}
+
+/* z-index у gameInviteBar = 700 (в style.css). Если заставка показывается
+   одновременно с плашкой — плашка ДОЛЖНА быть поверх. Ставим заставке 650. */
+.game-intro {
+    z-index: 650;
+}
+
+.game-intro.hidden {
+    display: none !important;
+}
+
+.game-intro-content {
+    text-align: center;
+    padding: 20px;
+    animation: introScaleIn 0.5s ease-out;
+}
+
+.game-intro-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #ffd54f;
+    text-shadow:
+        0 0 20px rgba(255, 213, 79, 0.7),
+        0 0 40px rgba(255, 180, 40, 0.4),
+        0 4px 0 rgba(0, 0, 0, 0.5);
+    margin-bottom: 32px;
+    animation: introTitlePulse 1.6s ease-in-out infinite;
+}
+
+.game-intro-vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.intro-player {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 110px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 213, 79, 0.3);
+    border-radius: 10px;
+}
+
+.intro-player-label {
+    font-size: 11px;
+    color: #8a8a98;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.intro-player-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+.intro-vs {
+    font-size: 26px;
+    font-weight: 900;
+    color: #ff5252;
+    text-shadow: 0 0 14px rgba(255, 82, 82, 0.8);
+    letter-spacing: 2px;
+    animation: introVsPulse 1s ease-in-out infinite;
+}
+
+.game-intro-hint {
+    font-size: 14px;
+    color: #8a8a98;
+    letter-spacing: 2px;
+    animation: introHintPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes introFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes introScaleIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes introTitlePulse {
+    0%, 100% { transform: scale(1);    text-shadow: 0 0 20px rgba(255, 213, 79, 0.7), 0 0 40px rgba(255, 180, 40, 0.4), 0 4px 0 rgba(0, 0, 0, 0.5); }
+    50%      { transform: scale(1.04); text-shadow: 0 0 30px rgba(255, 213, 79, 1),   0 0 60px rgba(255, 180, 40, 0.6), 0 4px 0 rgba(0, 0, 0, 0.5); }
+}
+
+@keyframes introVsPulse {
+    0%, 100% { transform: scale(1);    opacity: 1; }
+    50%      { transform: scale(1.12); opacity: 0.85; }
+}
+
+@keyframes introHintPulse {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+}
+
+@media (max-height: 700px) {
+    .game-intro-title { font-size: 24px; letter-spacing: 2px; margin-bottom: 20px; }
+    .intro-vs { font-size: 20px; }
+    .intro-player { min-width: 90px; padding: 8px 10px; }
+    .intro-player-name { font-size: 13px; }
+    .game-intro-hint { font-size: 12px; }
 }
