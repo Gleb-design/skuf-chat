@@ -18,12 +18,12 @@
         return;
     }
 
-    const exitBtn     = document.getElementById('tanksExitBtn');
-    const opponentEl  = document.getElementById('tanksOpponent');
-    const livesEl     = document.getElementById('tanksLives');
-    const tickEl      = document.getElementById('tanksTick');
-    const canvas      = document.getElementById('tanksCanvas');
-    const ctx         = canvas.getContext('2d');
+    const exitBtn = document.getElementById('tanksExitBtn');
+    const opponentEl = document.getElementById('tanksOpponent');
+    const livesEl = document.getElementById('tanksLives');
+    const tickEl = document.getElementById('tanksTick');
+    const canvas = document.getElementById('tanksCanvas');
+    const ctx = canvas.getContext('2d');
 
     // ---------- Состояние ----------
     const state = {
@@ -50,7 +50,7 @@
     const CANVAS_SIZE = canvas.width;           // 650
     const CELL = Math.floor(CANVAS_SIZE / MAP_SIZE);   // 50
     const TILE_EMPTY = 0, TILE_BRICK = 1, TILE_STEEL = 2,
-          TILE_WATER = 3, TILE_BUSH = 4, TILE_BASE = 5;
+        TILE_WATER = 3, TILE_BUSH = 4, TILE_BASE = 5;
 
     // ---------- Цвета тайлов ----------
     const TILE_COLORS = {
@@ -85,7 +85,7 @@
         // и корректируем по первому game_tick (там myTank != opponentTank).
         state.myKey = payload.state.youAre || null;
 
-                // Скрываем блок результата (если был от прошлой игры).
+        // Скрываем блок результата (если был от прошлой игры).
         const resultBox = document.getElementById('tanksResultBox');
         const rematchBtn = document.getElementById('tanksRematchBtn');
         if (resultBox) resultBox.classList.add('hidden');
@@ -134,10 +134,9 @@
         if (e.target && e.target.id === 'tanksRematchBtn') {
             const rematchBtn = e.target;
             rematchBtn.classList.add('hidden');
-            // Закрываем оверлей и шлём новое приглашение.
+            // v1.26.6: оверлей НЕ закрываем — плашка появится поверх него.
             // gameType по умолчанию в сервере — battleship, поэтому
             // нужно явно указать tanks.
-            closeOverlay();
             socket.emit('game_invite', { gameType: 'tanks' });
         }
     });
@@ -152,21 +151,28 @@
         console.log('✅ Соперник вернулся');
     });
 
+        socket.on('game_declined', ({ byUsername }) => {
+        // v1.26.6: инициатор отменил приглашение — скрываем плашку.
+        const inviteBar = document.getElementById('gameInviteBar');
+        if (inviteBar) inviteBar.classList.add('hidden');
+        console.log('🚫 Инициатор отменил приглашение:', byUsername);
+    });
+
     // ========================================================
     // Применить состояние с сервера
     // ========================================================
     function applyState(s) {
-        state.map           = s.map;
-        state.myTank        = s.myTank;
-        state.opponentTank  = s.opponentTank;
-        state.myBase        = s.myBase;
-        state.opponentBase  = s.opponentBase;
-        state.bullets       = s.bullets || [];
-        state.tick          = s.tick || 0;
+        state.map = s.map;
+        state.myTank = s.myTank;
+        state.opponentTank = s.opponentTank;
+        state.myBase = s.myBase;
+        state.opponentBase = s.opponentBase;
+        state.bullets = s.bullets || [];
+        state.tick = s.tick || 0;
 
         // Обновляем UI инфо
         if (livesEl) livesEl.textContent = '❤️ ' + (state.myTank ? state.myTank.lives : 0);
-        if (tickEl)  tickEl.textContent  = '⏱ ' + state.tick;
+        if (tickEl) tickEl.textContent = '⏱ ' + state.tick;
     }
 
     // ========================================================
@@ -275,9 +281,9 @@
         const cx = px + CELL / 2;
         const cy = py + CELL / 2;
         const len = CELL / 2;
-        if (tank.dir === 'up')    { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); }
-        if (tank.dir === 'down')  { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + len); }
-        if (tank.dir === 'left')  { ctx.moveTo(cx, cy); ctx.lineTo(cx - len, cy); }
+        if (tank.dir === 'up') { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); }
+        if (tank.dir === 'down') { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + len); }
+        if (tank.dir === 'left') { ctx.moveTo(cx, cy); ctx.lineTo(cx - len, cy); }
         if (tank.dir === 'right') { ctx.moveTo(cx, cy); ctx.lineTo(cx + len, cy); }
         ctx.stroke();
     }
@@ -325,11 +331,11 @@
 
     function handleKey(code, pressed) {
         switch (code) {
-            case 'KeyW': case 'ArrowUp':    input.up    = pressed; return true;
-            case 'KeyS': case 'ArrowDown':  input.down  = pressed; return true;
-            case 'KeyA': case 'ArrowLeft':  input.left  = pressed; return true;
+            case 'KeyW': case 'ArrowUp': input.up = pressed; return true;
+            case 'KeyS': case 'ArrowDown': input.down = pressed; return true;
+            case 'KeyA': case 'ArrowLeft': input.left = pressed; return true;
             case 'KeyD': case 'ArrowRight': input.right = pressed; return true;
-            case 'Space':                   input.shoot = pressed; return true;
+            case 'Space': input.shoot = pressed; return true;
         }
         return false;
     }

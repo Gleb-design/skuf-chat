@@ -485,8 +485,21 @@ function spawnBullet(game, key) {
         return null;
     }
 
-    // Всё остальное (пусто, кусты, вода, база) — снаряд создаётся
-    // и полетит дальше. Попадание в базу обработает updateBullets.
+    // v1.26.6 fix: выстрел в упор по базе.
+    // Если прямо перед стволом — база, уничтожаем её сразу.
+    if (tile === TILE_BASE) {
+        if (game.bases.player1.x === nx && game.bases.player1.y === ny) {
+            game.bases.player1.alive = false;
+        }
+        if (game.bases.player2.x === nx && game.bases.player2.y === ny) {
+            game.bases.player2.alive = false;
+        }
+        return null;   // снаряд не создаём, кулдаун сработал
+    }
+
+    // Всё остальное (пусто, кусты, вода) — снаряд создаётся
+    // и полетит дальше. Попадание в базу обработает updateBullets
+    // (для случая, когда снаряд долетел до неё).
     const bullet = {
         id: 'b_' + game.nextBulletId++,
         x: nx,

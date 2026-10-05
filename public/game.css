@@ -218,13 +218,14 @@
     gap: 8px;
     padding: 8px 12px;
     margin-bottom: 6px;
-    background: rgba(30, 100, 150, 0.25);
+    background: rgba(20, 40, 70, 0.92);   /* ← плотный тёмно-синий фон */
     border-left: 3px solid #4a9eff;
     border-radius: 4px;
     font-size: 13px;
-    color: #ddd;
+    color: #fff;                            /* ← белый текст, не серый */
     animation: none;
     flex-wrap: wrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);  /* ← тень отделяет от фона */
 }
 
 .game-invite-bar .invite-accept-btn,
@@ -602,12 +603,13 @@
     gap: 8px;
     padding: 8px 12px;
     margin-bottom: 6px;
-    background: rgba(150, 100, 30, 0.25);
+    background: rgba(70, 45, 10, 0.92);   /* ← плотный тёмно-коричневый */
     border-left: 3px solid #ffb74d;
     border-radius: 4px;
     font-size: 13px;
-    color: #ddd;
+    color: #fff;                            /* ← белый текст */
     animation: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .game-waiting-bar.hidden {
@@ -644,6 +646,14 @@
     border-radius: 4px;
     flex-shrink: 0;
     transition: 0.15s;
+
+    /* v1.26.6: центрируем символ ✕ в кнопке */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-width: 28px;
+    min-height: 28px;
 }
 .game-waiting-cancel:hover {
     background: rgba(255, 255, 255, 0.1);

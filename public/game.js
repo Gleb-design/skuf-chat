@@ -412,11 +412,10 @@
     // SOCKET-СОБЫТИЯ (пока только базовые)
     // ========================================================
 
-        socket.on('game_invite_sent', ({ toUsername }) => {
+    socket.on('game_invite_sent', ({ toUsername, gameId }) => {
         statusMsgEl.textContent = `🎯 Приглашение отправлено: ${toUsername}`;
-        // Закрываем оверлей (если открыт) и показываем плашку в привате
-        closeOverlay();
-        showGameWaitingBar(toUsername);
+        // v1.26.6: оверлей НЕ закрываем — плашка поверх него.
+        showGameWaitingBar(toUsername, gameId);
     });
 
     socket.on('game_error', ({ reason }) => {
@@ -482,17 +481,21 @@
         }
     }
 
-    // Показывает плашку «Ждём ответа на приглашение в игру»
-    function showGameWaitingBar(toUsername) {
+    function showGameWaitingBar(toUsername, gameId) {
         if (!gameWaitingBar) return;
         if (gameWaitingText) {
             gameWaitingText.textContent = `Ждём ответа от ${toUsername}...`;
         }
+        // v1.26.6: сохраняем gameId, чтобы кнопка ✕ могла отправить game_decline
+        if (gameId) gameWaitingBar.dataset.gameId = gameId;
         gameWaitingBar.classList.remove('hidden');
     }
 
     function hideGameWaitingBar() {
-        if (gameWaitingBar) gameWaitingBar.classList.add('hidden');
+        if (gameWaitingBar) {
+            gameWaitingBar.classList.add('hidden');
+            gameWaitingBar.dataset.gameId = '';
+        }
     }
 
     // Кнопка «Принять»
@@ -515,12 +518,20 @@
         });
     }
 
-    // Кнопка ✕ на плашке ожидания — отменить
+    // Кнопка ✕ на плашке ожидания — отменить приглашение
     if (gameWaitingCancelBtn) {
         gameWaitingCancelBtn.addEventListener('click', () => {
+            // v1.26.6: отправляем game_decline на сервер, чтобы игра
+            // закрылась и у соперника плашка исчезла.
+            // gameId берём из общего места — плашка ожидания не хранит
+            // его сама, но у нас есть state.gameId? Нет — игра ещё не началась.
+            // Поэтому берём gameId из плашки приглашения партнёра? Тоже нет.
+            // Решение: сохраняем gameId в data-атрибут при показе.
+            const gameId = gameWaitingBar?.dataset.gameId;
+            if (gameId) {
+                socket.emit('game_decline', { gameId });
+            }
             hideGameWaitingBar();
-            // Не отправляем game_decline — соперник ещё не принял.
-            // Просто скрываем плашку (игра останется в pending состоянии)
         });
     }
 
@@ -529,12 +540,8 @@
     // ========================================================
 
     // Пришло приглашение от другого игрока
-        socket.on('game_invited', ({ gameId, fromUsername }) => {
-        // Закрываем оверлей (если открыт) — чтобы игрок увидел плашку приглашения
-        // внизу. Это важно для реванша: у игрока остался экран с результатом.
-        if (!overlay.classList.contains('hidden')) {
-            closeOverlay();
-        }
+    socket.on('game_invited', ({ gameId, fromUsername }) => {
+        // v1.26.6: оверлей НЕ закрываем — плашка поверх него.
         showGameInviteBar(fromUsername, gameId);
     });
 
@@ -628,9 +635,6 @@
         rematchBtn.addEventListener('click', () => {
             // Прячем кнопки результата
             if (rematchBtn) rematchBtn.classList.add('hidden');
-
-            // Закрываем оверлей
-            closeOverlay();
 
             // Отправляем новое приглашение
             socket.emit('game_invite');
@@ -741,6 +745,11 @@
         // Только наша игра — иначе чужие оверлеи будут открываться.
         if (!state.gameId) return;
         if (payload && payload.gameId && payload.gameId !== state.gameId) return;
+
+        // v1.26.6: принудительное завершение перед реваншем —
+        // не показываем результат и не играем звук.
+        if (payload && payload.reason === 'rematch') return;
+
         const { winner, reason } = payload;
         if (randomBtn) randomBtn.classList.add('hidden');
         if (readyBtn) readyBtn.classList.add('hidden');

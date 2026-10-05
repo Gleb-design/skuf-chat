@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.26.4
+Версия: v1.26.6
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.26.4 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.26.6 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.26.4
+- Стабильная версия: v1.26.6
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -79,7 +79,7 @@
   • win.mp3 (победа) — volume 0.5 (подольше)
   • lose.mp3 (поражение) — volume 0.5 (подольше)
   Подробности — в разделе 20 → «Звуки».
-- Кэшируются в service worker (CACHE_NAME = skuf-chat-v17)
+- Кэшируются в service worker (CACHE_NAME = skuf-chat-v24)
 
 ## 7. RATE LIMIT
 - 5 сообщений за 3 секунды (RATE_LIMIT_MAX=5, RATE_LIMIT_WINDOW_MS=3000)
@@ -104,7 +104,7 @@
 
 ## 11. OPEN GRAPH + PWA
 - og:title, og:description, og:image (og-image.png 1200x630), Twitter Cards
-- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v17' (актуально с v1.24.2)
+- PWA: manifest.json, sw.js, CACHE_NAME = 'skuf-chat-v24' (актуально с v1.24.2)
 - Иконка 512x512
 
 ## 12. НИКИ
@@ -154,7 +154,7 @@
 - Пауза на неактивной вкладке: document.visibilitychange → pause().
   Возврат: если ambientEnabled → applyAmbient().
 - CSS: .mini-sound-btn (обычное — синее, .active — зелёное со свечением)
-- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v17' (актуально с v1.24.2)
+- Кэшируется в sw.js: CACHE_NAME = 'skuf-chat-v24' (актуально с v1.24.2)
 ⚠️ ОТКАТАНО в v1.16.1...
 Оставлено как справка на будущее.
 ### Перевода сообщений / GlobeSkuf (v1.17.0)
@@ -188,7 +188,7 @@
   translated_message / translate_error, кнопка 🌐 в receive_msg),
   public/style.css (.translate-btn, .translated-text, .hidden),
   server.js (translateText + кэш + saveTranslation, socket.on('translate_message')),
-  public/sw.js (CACHE_NAME → skuf-chat-v6).
+  public/sw.js (CACHE_NAME → skuf-chat-v24).
 ### Декорации стола и полки (v1.16.0)
 - Пепельницы: .skuf-decor.ashtray1, .ashtray2 (курилка), .ashtray-p1 (приват, только слева)
   - z-index: 3 (поверх стола/стойки)
@@ -361,7 +361,7 @@ skuf-chat/
     чтобы декор (z=2-3) их не перекрывал. Лампы — z=50 (поверх, задумано).
   • Файлы: public/client.js (новые элементы в generalDecor/privateDecor),
     public/style.css (стили, позиции, медиа-запросы, фиксы),
-    public/sw.js (CACHE_NAME → skuf-chat-v5).
+    public/sw.js (CACHE_NAME → skuf-chat-v24).
 - v1.17.0 — GlobeSkuf: перевод сообщений по клику
   • Кнопка 🌐 под каждым чужим сообщением. Клик → перевод, ещё клик → скрыть.
   • Серверный прокси через цепочку lingva.ml → MyMemory → Google.
@@ -477,7 +477,7 @@ skuf-chat/
     attachMsgTapHandler, обработчики кнопок popup), public/index.html
     (HTML popup ВЫШЕ скриптов), public/style.css (стили popup + медиа-запрос,
     фикс кнопок приглашения).
-- v1.21.1 — обновление CACHE_NAME → skuf-chat-v8
+- v1.21.1 — обновление CACHE_NAME → skuf-chat-v24
   • Без этого браузер пользователя мог держать старый client.js/style.css
     из кэша и popup не работал бы на проде.
   • Файл: public/sw.js.
@@ -915,6 +915,48 @@ skuf-chat/
     мобильное управление, таймер партии 5 мин, sw.js (tanks.js
     и tanks.css не добавлены в кэш).
   • Файлы: games/tanks.js, public/tanks.js, report.txt.
+
+- v1.26.6 — РЕВАНШ: плашки поверх оверлея + отмена приглашения + фиксы
+  • public/tanks.js: кнопка «🔄 Ещё раз» больше НЕ закрывает оверлей.
+    Теперь у обоих игроков оверлей остаётся открыт, а плашка
+    приглашения/ожидания рисуется поверх него — как в v1.26.3
+    для Морского боя.
+  • public/game.js (Морской бой): аналогично — убрали closeOverlay()
+    из кнопки «Ещё раз», из game_invite_sent и из game_invited.
+    Плюс: в game_finished добавлен выход по reason === 'rematch'
+    (раньше при реванше показывался результат «Поражение» и
+    звучал lose.mp3 — моргание).
+  • public/game.js: кнопка ✕ на плашке ожидания теперь отправляет
+    game_decline на сервер (раньше просто скрывала плашку у себя,
+    а приглашение висело у соперника). gameId сохраняется в
+    dataset.gameId при показе плашки.
+  • public/tanks.js: добавлен обработчик game_declined — скрывает
+    плашку приглашения у соперника, когда инициатор отменил
+    приглашение кнопкой ✕.
+  • games/tanks.js: ФИКС выстрела в упор по базе. Раньше снаряд
+    не создавался, если прямо перед стволом TILE_BASE (база) —
+    и база не уничтожалась. Теперь: если база в упор — сразу
+    game.bases[X].alive = false, кулдаун срабатывает.
+  • public/tanks.css: .tanks-overlay больше не использует
+    justify-content: center (контент выше viewport — верх
+    обрезался). Канвас ограничен по высоте через
+    width: min(650px, 100vw - 60px, 100vh - 260px) + aspect-ratio: 1/1.
+    Теперь верхняя строка и кнопка «Ещё раз» видны на полном экране.
+  • public/game.css: центрирование ✕ в .game-waiting-cancel
+    (display: inline-flex + align/justify center + line-height: 1).
+    Плотный фон для .game-invite-bar (rgba(20,40,70,0.92)) и
+    .game-waiting-bar (rgba(70,45,10,0.92)) + белый текст + тень.
+    Плашки теперь читаются на любом фоне (ковёр, канвас, сетка).
+  • public/sw.js: CACHE_NAME → skuf-chat-v24 (если ещё не был поднят).
+  • Проверено локально (обычное + инкогнито):
+    — Морской бой: оба оверлея открыты, плашки поверх.
+    — Танчики: оба оверлея открыты, плашки поверх.
+    — ✕ на плашке ожидания: у обоих игроков плашка исчезает.
+    — Танчики: выстрел в упор по базе уничтожает её.
+    — Полный экран: верхняя строка и кнопка «Ещё раз» видны.
+  • Файлы: games/tanks.js, public/tanks.js, public/tanks.css,
+    public/game.js, public/game.css, public/sw.js, report.txt.
+
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13
 - ✅ Серверная логика (v1.22.0)
@@ -1447,6 +1489,7 @@ public/domino.js (domino). Универсальный клиент — зада�
 ### Что НЕ реализовано (бэклог Танчиков)
 - ✅ myKey / youAre — сделано в v1.26.5. Клиент берёт youAre
   из serializeFor, а не хардкодит 'player1'.
+- ✅ Фикс выстрела в упор по базе — v1.26.6.
 - 🚧 Кусты-прятки (танк под кустом не виден сопернику).
 - 🚧 Звуки: выстрел, попадание, взрыв, победа/поражение.
 - 🚧 Мобильное управление (виртуальный джойстик + кнопка огня).
