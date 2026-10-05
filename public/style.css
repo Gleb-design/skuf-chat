@@ -2372,3 +2372,66 @@ a,
     background: #5a2a2a;
     color: #fff;
 }
+
+/* v1.26.7: ужимаем всё для маленьких экранов (iPhone SE 375×667) */
+@media (max-width: 768px) and (max-height: 700px) {
+    /* Сайдбар (верхняя плашка) — компактнее */
+    .sidebar {
+        height: 40px;
+    }
+    .mode-btn {
+        font-size: 12px;
+        gap: 4px;
+    }
+    .mode-btn span {
+        font-size: 14px;
+    }
+
+    /* Шапка чата — меньше */
+    .chat-header {
+        padding: 8px 12px;
+    }
+    .chat-header h2 {
+        font-size: 15px;
+    }
+    .online-counter {
+        font-size: 11px;
+        margin-top: 2px;
+    }
+
+    /* Приватные кнопки — компактнее */
+    .private-controls {
+        padding: 6px 8px;
+        gap: 4px;
+    }
+    .private-controls button {
+        font-size: 11px;
+        padding: 6px 8px;
+    }
+
+    /* Поле ввода — компактнее */
+    .chat-input-area {
+        padding: 8px;
+        gap: 6px;
+    }
+    .user-bottom-profile {
+        font-size: 11px;
+    }
+    .input-row input {
+        padding: 8px;
+        font-size: 13px;
+    }
+    .emoji-btn {
+        font-size: 16px;
+        padding: 0 6px;
+        min-width: 34px;
+    }
+    #sendBtn {
+        padding: 0 10px;
+        font-size: 0;
+    }
+    #sendBtn::after {
+        content: '🚀';
+        font-size: 16px;
+    }
+}

@@ -85,7 +85,53 @@
         myBoard: [],          // 10×10
         enemyBoard: [],       // 10×10
         opponentName: '',
+
+        // v1.26.7: счёт партий и клеток
+        myWins: 0,
+        oppWins: 0,
+        myAliveCells: 20,
+        enemyAliveCells: 20,
+        seriesStarted: false, // до первой партии серию не показываем
     };
+
+    const TOTAL_SHIP_CELLS = 20;  // 4+3+3+2+2+2+1+1+1+1
+
+    // v1.26.7: обновляет DOM счётчика партий и клеток
+    function updateScoreboardUI() {
+        const myWinsEl = document.getElementById('gameMyWins');
+        const oppWinsEl = document.getElementById('gameOppWins');
+        const myCellsEl = document.getElementById('gameMyCells');
+        const enemyCellsEl = document.getElementById('gameEnemyCells');
+        const seriesEl = document.getElementById('gameSeriesScore');
+
+        if (myWinsEl) myWinsEl.textContent = state.myWins;
+        if (oppWinsEl) oppWinsEl.textContent = state.oppWins;
+        if (myCellsEl) myCellsEl.textContent = state.myAliveCells;
+        if (enemyCellsEl) enemyCellsEl.textContent = state.enemyAliveCells;
+
+        // Серия показывается только после первой партии
+        if (seriesEl) {
+            if (state.seriesStarted) seriesEl.classList.remove('hidden');
+            else seriesEl.classList.add('hidden');
+        }
+    }
+
+    // v1.26.7: полный сброс счёта (при выходе во флудилку)
+    function resetScoreboard() {
+        state.myWins = 0;
+        state.oppWins = 0;
+        state.myAliveCells = TOTAL_SHIP_CELLS;
+        state.enemyAliveCells = TOTAL_SHIP_CELLS;
+        state.seriesStarted = false;
+        updateScoreboardUI();
+    }
+
+    // v1.26.7: сброс счётчика клеток на новую партию (не трогает серию)
+    function resetCellsForNewGame() {
+        state.myAliveCells = TOTAL_SHIP_CELLS;
+        state.enemyAliveCells = TOTAL_SHIP_CELLS;
+        updateScoreboardUI();
+    }
 
     const BOARD_SIZE = 10;
 
@@ -214,6 +260,7 @@
         renderEmptyBoard(enemyBoardEl, null);
         statusMsgEl.textContent = 'Ожидание приглашения...';
         resetBoardTabs();
+        updateScoreboardUI();
 
         // Скрываем кнопку «Ещё раз» при новой игре
         if (rematchBtn) rematchBtn.classList.add('hidden');
@@ -308,20 +355,27 @@
     const gameBoards = document.querySelector('.game-boards');
 
     gameBoardTabs.forEach((tab) => {
-        tab.addEventListener('click', () => {
-            const target = tab.dataset.board; // 'my' | 'enemy'
-
-            // Активный таб
+        const switchTo = (target) => {
             gameBoardTabs.forEach((t) => t.classList.remove('active'));
             tab.classList.add('active');
-
-            // Переключаем видимость поля
             if (target === 'enemy') {
                 gameBoards.classList.add('show-enemy');
             } else {
                 gameBoards.classList.remove('show-enemy');
             }
+        };
+
+        tab.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            console.log('🎯 pointerdown на табе:', tab.dataset.board);
+            switchTo(tab.dataset.board);
         });
+
+        tab.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            console.log('🎯 touchstart на табе:', tab.dataset.board);
+            switchTo(tab.dataset.board);
+        }, { passive: false });
     });
 
     // При открытии оверлея — сбросить на «Моё поле»
@@ -646,6 +700,8 @@
         state.myPlayerKey = youAre || null;  // ← НОВОЕ
         state.gameId = gameId;
         state.phase = 'battle';
+        // v1.26.7: новая партия — сбрасываем счётчик клеток
+        resetCellsForNewGame();
 
         state.turn = turn;
         state.myBoard = myBoard;
@@ -689,7 +745,11 @@
         if (result === 'miss') playSound('miss');
         else if (result === 'hit') playSound('hit');
         else if (result === 'sunk') playSound('sunk');
-
+        // v1.26.7: попадание уменьшает счёт клеток соперника
+        if (result === 'hit' || result === 'sunk') {
+            state.enemyAliveCells = Math.max(0, state.enemyAliveCells - 1);
+            updateScoreboardUI();
+        }
         // Обновляем ход
         if (turn) {
             state.turn = turn;
@@ -722,7 +782,11 @@
         if (result === 'miss') playSound('miss');
         else if (result === 'hit') playSound('hit');
         else if (result === 'sunk') playSound('sunk');
-
+        // v1.26.7: соперник попал — уменьшается наш счёт клеток
+        if (result === 'hit' || result === 'sunk') {
+            state.myAliveCells = Math.max(0, state.myAliveCells - 1);
+            updateScoreboardUI();
+        }
         // Обновляем ход
         if (turn) {
             state.turn = turn;
@@ -751,6 +815,11 @@
         if (payload && payload.reason === 'rematch') return;
 
         const { winner, reason } = payload;
+        // v1.26.7: обновляем счёт партий
+        if (winner === 'you') state.myWins++;
+        else if (winner === 'opponent') state.oppWins++;
+        state.seriesStarted = true;
+        updateScoreboardUI();
         if (randomBtn) randomBtn.classList.add('hidden');
         if (readyBtn) readyBtn.classList.add('hidden');
         if (turnIndicatorEl) turnIndicatorEl.classList.remove('turn-you');
@@ -801,6 +870,19 @@
         console.log('✅ Мы вернулись в игру');
         // ⚠️ MVP: оверлей не восстанавливаем — просто игнорируем
     });
+
+        // ========================================================
+    // v1.26.7: сброс серии партий при выходе во флудилку
+    // ========================================================
+    const btnGeneralEl = document.getElementById('btnGeneral');
+    if (btnGeneralEl) {
+        btnGeneralEl.addEventListener('click', () => {
+            // Игрок ушёл из привата — обнуляем серию.
+            // Это НЕ касается closeOverlay (там серия сохраняется
+            // при реванше и временных закрытиях).
+            resetScoreboard();
+        });
+    }
 
     console.log('🚢 Морской бой: клиентский модуль загружен');
 })();

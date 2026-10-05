@@ -151,6 +151,17 @@
       <span id="gameTimer" class="game-timer hidden">0:00</span>
     </div>
 
+    <!-- v1.26.7: счёт партий и счётчик клеток -->
+    <div class="game-scoreboard" id="gameScoreboard">
+      <div class="game-score-series hidden" id="gameSeriesScore">
+        🏆 Серия: <strong id="gameMyWins">0</strong> : <strong id="gameOppWins">0</strong>
+      </div>
+      <div class="game-score-cells">
+        <span class="score-cells-me">🎯 Твой флот: <strong id="gameMyCells">20</strong></span>
+        <span class="score-cells-opp">☠️ Флот соперника: <strong id="gameEnemyCells">20</strong></span>
+      </div>
+    </div>
+
     <!-- Табы для переключения полей (только на мобилке) -->
     <div class="game-board-tabs">
       <button class="game-board-tab active" data-board="my">🎯 Моё поле</button>

@@ -1,10 +1,10 @@
 ===== SKUF-CHAT — ОТЧЁТ ДЛЯ ПЕРЕХОДА =====
-Версия: v1.26.6
+Версия: v1.26.7
 
 ## 0. КАК РАБОТАТЬ С ЭТИМ ПРОЕКТОМ (читать первым!)
 
 Это продолжение проекта Skuf Chat. Прошлый чат стал слишком большим.
-Считай v1.26.6 стабильной версией. НЕ ломай существующую рабочую архитектуру.
+Считай v1.26.7 стабильной версией. НЕ ломай существующую рабочую архитектуру.
 При изменениях:
 1) Сначала анализируй текущий код.
 2) Давай конкретные пошаговые действия для VS Code / PowerShell.
@@ -20,7 +20,7 @@
 - GitHub: Gleb-design/skuf-chat (ветка main)
 - Render: Live
 - Локальный запуск: npm start → http://localhost:3000
-- Стабильная версия: v1.26.6
+- Стабильная версия: v1.26.7
 - Domain: https://skuf-chat.xyz
 - Хранение: RAM + Redis (Render Key Value, free tier)
   • История флудилки — в Redis (Sorted Set skuf:history, TTL 24ч)
@@ -956,6 +956,44 @@ skuf-chat/
     — Полный экран: верхняя строка и кнопка «Ещё раз» видны.
   • Файлы: games/tanks.js, public/tanks.js, public/tanks.css,
     public/game.js, public/game.css, public/sw.js, report.txt.
+
+- v1.26.7 — МОРСКОЙ БОЙ: счёт партий и клеток + фиксы мобилки
+  • СЧЁТ КЛЕТОК ФЛОТА (Морской бой):
+    — Над полями появилась плашка: «🎯 Твой флот: N · ☠️ Флот соперника: N».
+    — Старт партии: 20/20 (4+3+3+2+2+2+1+1+1+1 = 20 клеток).
+    — Каждое попадание (hit/sunk) уменьшает счёт противника — и наш
+      при попадании соперника.
+    • Серия партий: «🏆 Серия: X : Y» — показывается после первой
+      партии, копится за реванши, сбрасывается при выходе во флудилку
+      (слушатель на #btnGeneral).
+  • public/index.html: добавлен блок #gameScoreboard между .game-info
+    и .game-board-tabs.
+  • public/game.css: стили .game-scoreboard / .game-score-series /
+    .game-score-cells. Плюс компактный оверлей для max-height: 700px
+    (iPhone SE): меньше padding, шрифты, поля, чат.
+  • public/game.js: state.myWins/oppWins/myAliveCells/enemyAliveCells,
+    функция updateScoreboardUI, resetScoreboard, resetCellsForNewGame.
+    Обновление в game_battle (20/20), game_shot_result (enemy--),
+    game_opponent_shot (my--), game_finished (серия++).
+  • public/style.css: компактный сайдбар для max-height: 700px
+    (меньше верхняя плашка, шрифты, кнопки).
+  • ФИКС ТАБОВ НА iPHONE SE (375×667):
+    — На маленьком viewport верхняя плашка сайдбара (высота 50px)
+      перекрывала табы «Моё поле» / «Поле врага» — тап не долетал.
+    — В game.js: слушатели перенесены на pointerdown + touchstart
+      (с { passive: false } для touchstart), вынесена общая
+      функция switchTo. Работает и в DevTools touch-эмуляции,
+      и на реальном iOS Safari.
+  • Проверено локально (обычное + инкогнито, DevTools iPhone SE):
+    — Табы переключаются, поля видны.
+    — Счёт клеток уменьшается при попаданиях.
+    — Серия партий копится за реванши.
+    — Выход во флудилку → серия сбрасывается.
+  • ⏳ НЕ сделано: sw.js не поднят (CACHE_NAME = skuf-chat-v24).
+    Юзеры могут держать старый CSS из кэша — при следующем релизе
+    поднять до v25.
+  • Файлы: public/game.js, public/game.css, public/index.html,
+    public/style.css, report.txt.
 
 ## 16. ИДЕИ НА ДАЛЬШЕ (по приоритету)
 ### ИГРА МОРСКОЙ БОЙ — ✅ СДЕЛАНО в v1.22.0–v1.22.13

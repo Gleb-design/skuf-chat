@@ -3,9 +3,9 @@
 /* ======================================================= */
 
 .game-overlay {
-    position: absolute;
+    position: fixed;       /* ← fixed — вырывается из потока */
     inset: 0;
-    z-index: 200;                /* поверх декораций (лампы z=50) */
+    z-index: 2000;         /* ← выше всего: сайдбара, плашек, попапов (кроме очень высоких) */
     background: rgba(20, 16, 12, 0.96);
     display: flex;
     flex-direction: column;
@@ -658,4 +658,134 @@
 .game-waiting-cancel:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
+}
+
+/* ======================================================= */
+/* СЧЁТ ПАРТИЙ И СЧЁТЧИК КЛЕТОК (v1.26.7)                  */
+/* ======================================================= */
+
+.game-scoreboard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: rgba(30, 25, 20, 0.85);
+    border: 1px solid rgba(255, 183, 77, 0.25);
+    border-radius: 8px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.game-score-series {
+    font-size: 15px;
+    color: #ffb74d;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+.game-score-series.hidden {
+    display: none !important;
+}
+.game-score-series strong {
+    font-size: 18px;
+    color: #fff;
+    padding: 0 4px;
+    text-shadow: 0 0 6px rgba(255, 183, 77, 0.5);
+}
+
+.game-score-cells {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: #ddd;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.game-score-cells strong {
+    color: #fff;
+    font-weight: 700;
+    padding: 0 2px;
+}
+.score-cells-me strong {
+    color: #7cd97c;   /* зелёный — свой флот */
+}
+.score-cells-opp strong {
+    color: #ff8888;   /* красный — флот соперника */
+}
+
+/* v1.26.7: ужимаем оверлей Морского боя на iPhone SE (375×667) */
+@media (max-height: 700px) {
+    .game-overlay {
+        padding: 8px;
+        gap: 6px;
+    }
+    .game-header h3 {
+        font-size: 15px;
+    }
+    #gameExitBtn {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+    }
+    .game-info {
+        font-size: 12px;
+        gap: 6px;
+    }
+    .game-timer {
+        font-size: 13px;
+        padding: 3px 8px;
+        min-width: 44px;
+    }
+    .game-scoreboard {
+        padding: 5px 8px;
+        gap: 3px;
+    }
+    .game-score-series {
+        font-size: 12px;
+    }
+    .game-score-series strong {
+        font-size: 14px;
+    }
+    .game-score-cells {
+        font-size: 11px;
+        gap: 10px;
+    }
+    .game-board-tabs {
+        margin-bottom: 4px;
+    }
+    .game-board-tab {
+        padding: 8px 10px;
+        font-size: 12px;
+        min-height: 36px;
+    }
+    .game-board-wrapper h4 {
+        font-size: 11px;
+    }
+    .game-board {
+        width: min(80vw, 280px);
+        padding: 5px;
+        gap: 1px;
+    }
+    .game-controls {
+        gap: 6px;
+    }
+    .game-controls button {
+        padding: 7px 12px;
+        font-size: 12px;
+    }
+    #gameStatusMsg {
+        font-size: 12px;
+        min-height: 14px;
+    }
+    .game-chat-log {
+        max-height: 60px;
+        min-height: 40px;
+        font-size: 12px;
+        padding: 6px;
+    }
+    .game-chat-input input {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
 }
