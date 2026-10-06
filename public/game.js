@@ -75,10 +75,6 @@
     const introMyNameEl = document.getElementById('introMyName');
     const introOppNameEl = document.getElementById('introOppName');
 
-    // Звук заставки — играем один раз, обрезаем на 2 сек
-    const introSound = new Audio('/intro.mp3');
-    introSound.volume = 0.5;
-    introSound.preload = 'auto';
 
     let introTimerId = null;
 
@@ -92,17 +88,11 @@
 
         introEl.classList.remove('hidden');
 
-        // Звук — 2 сек, потом пауза
-        try {
-            introSound.currentTime = 0;
-            introSound.play().catch(() => {});
-        } catch (err) {}
-
         // Автоскрытие через 2 сек
         if (introTimerId) clearTimeout(introTimerId);
         introTimerId = setTimeout(() => {
             hideGameIntro();
-        }, 2000);
+        }, 3500);
     }
 
     function hideGameIntro() {
@@ -110,11 +100,14 @@
             clearTimeout(introTimerId);
             introTimerId = null;
         }
-        if (introEl) introEl.classList.add('hidden');
-        try {
-            introSound.pause();
-            introSound.currentTime = 0;
-        } catch (err) {}
+        if (introEl) {
+            introEl.classList.add('closing');
+            // Скрываем через 350 мс (пока анимация)
+            setTimeout(() => {
+                introEl.classList.remove('closing');
+                introEl.classList.add('hidden');
+            }, 350);
+        }
     }
 
     if (!overlay) {

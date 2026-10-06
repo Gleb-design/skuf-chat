@@ -1,8 +1,7 @@
-const CACHE_NAME = 'skuf-chat-v25';
+const CACHE_NAME = 'skuf-chat-v26';
 const assets = [
   '/',
   '/index.html',
-  '/intro.mp3',
   '/style.css',
   '/client.js',
   '/icon.png',
