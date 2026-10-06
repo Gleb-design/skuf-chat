@@ -9,13 +9,22 @@
 'use strict';
 
 // ---------- Константы ----------
+// ---------- Константы ----------
 const MAP_SIZE = 13;              // поле 13×13
 const TILE_EMPTY = 0;
 const TILE_BRICK = 1;
 const TILE_STEEL = 2;
 const TILE_WATER = 3;
 const TILE_BUSH = 4;
-const TILE_BASE = 5;
+// v1.29.0: базы убраны, вместо TILE_BASE (5) — декор.
+const TILE_CRATE   = 5;   // 📦 ящик (дерево, ломается выстрелом)
+const TILE_BARREL  = 6;   // 🛢️ бочка (металл, не ломается)
+const TILE_SANDBAG = 7;   // 🧱 мешки (непроходимы, не ломаются)
+const TILE_TIRE    = 8;   // ⚫ покрышка (проходима, только декор)
+
+// v1.28.0: туман войны
+const TILE_FOG = 9;                  // клетка вне радиуса видимости
+const VISIBILITY_RADIUS = 3;         // манхэттенское расстояние (ромб)
 
 const TANK_LIVES = 5;   // v1.27.0: 5 попаданий = смерть (без респавна)
 const TANK_SPEED_TICKS = 5;       // 1 клетка за 5 тиков
@@ -35,11 +44,9 @@ const BATTLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 минут
 // спавн соперника в (11,1), базу соперника в (11,11).
 // Симметрично — оба игрока видят одинаковую картину.
 
+// v1.29.0: базы убраны. Победа — только по убийству (5 попаданий).
 const P1_SPAWN = { x: 1, y: MAP_SIZE - 2, dir: 'up' };   // x=1, y=11 (нижний левый)
-const P1_BASE  = { x: 1, y: 1 };                          // x=1, y=1  (верхний левый)
-
 const P2_SPAWN = { x: MAP_SIZE - 2, y: 1, dir: 'down' }; // x=11, y=1  (верхний правый)
-const P2_BASE  = { x: MAP_SIZE - 2, y: MAP_SIZE - 2 };   // x=11, y=11 (нижний правый)
 
 // ---------- Контракт модуля ----------
 module.exports = {
@@ -60,22 +67,24 @@ module.exports = {
                 player1: createTank(P1_SPAWN),
                 player2: createTank(P2_SPAWN),
             },
-            bases: {
-                player1: { ...P1_BASE, alive: true },
-                player2: { ...P2_BASE, alive: true },
-            },
             inputs: {
                 player1: emptyInput(),
                 player2: emptyInput(),
             },
             bullets: [],
-            nextBulletId: 1,        // v1.26.1: счётчик для id снарядов
+            nextBulletId: 1,
             tick: 0,
             winner: null,
             finishReason: null,
             phase: 'battle',
             startedAt: Date.now(),
             seed: Date.now(),
+
+            // v1.28.0: последние выстрелы игроков (для тумана — вспышка)
+            lastShots: {
+                player1: null,   // { x, y, tick }
+                player2: null,
+            },
         };
     },
 
@@ -97,24 +106,9 @@ module.exports = {
     },
 
     isFinished(state) {
-        // Проверка условий победы:
-        // 1. База уничтожена → победа соперника.
-        // 2. У соперника 0 жизней → победа игрока.
-        const s = state.state || state;   // терпимо к обёртке
+        // v1.29.0: базы убраны. Победа — только по убийству (5 попаданий).
+        const s = state.state || state;
 
-        // Базы
-        if (!s.bases.player1.alive && s.bases.player2.alive) {
-            return { finished: true, winner: 'player2', reason: 'base_destroyed' };
-        }
-        if (!s.bases.player2.alive && s.bases.player1.alive) {
-            return { finished: true, winner: 'player1', reason: 'base_destroyed' };
-        }
-        if (!s.bases.player1.alive && !s.bases.player2.alive) {
-            // Одновременно обе — ничья (редкий случай).
-            return { finished: true, winner: null, reason: 'both_bases_destroyed' };
-        }
-
-        // Жизни танков
         const p1 = s.tanks.player1;
         const p2 = s.tanks.player2;
         const p1dead = p1.lives <= 0;
@@ -135,14 +129,61 @@ module.exports = {
 
     serializeFor(game, playerKey) {
         const state = game.state || game;
+        const opponentKey = getOpponentKey(state, playerKey);
+        const myTank = state.tanks[playerKey];
+        const oppTank = state.tanks[opponentKey];
+
+        // Видимость: манхэттенское расстояние от моего танка ≤ RADIUS
+        function isVisible(x, y) {
+            if (!myTank || !myTank.alive) return false;
+            return Math.abs(x - myTank.x) + Math.abs(y - myTank.y) <= VISIBILITY_RADIUS;
+        }
+
+        // v1.28.1: ВОЗВРАТ к простому туману. Вне радиуса — TILE_FOG (тёмный).
+        const foggedMap = [];
+        for (let y = 0; y < MAP_SIZE; y++) {
+            const row = [];
+            for (let x = 0; x < MAP_SIZE; x++) {
+                if (isVisible(x, y)) {
+                    row.push(state.map[y][x]);
+                } else {
+                    row.push(TILE_FOG);
+                }
+            }
+            foggedMap.push(row);
+        }
+
+        // Соперник
+        const oppVisible = oppTank && oppTank.alive && isVisible(oppTank.x, oppTank.y);
+        const visibleOppTank = oppVisible ? oppTank : null;
+
+        // Снаряды
+        const visibleBullets = state.bullets.filter((b) => {
+            if (b.owner === playerKey) return true;
+            return isVisible(b.x, b.y);
+        });
+
+        // Вспышка от выстрела соперника вне радиуса
+        const lastShot = state.lastShots ? state.lastShots[opponentKey] : null;
+        if (lastShot && (state.tick - lastShot.tick) <= 10) {
+            if (!isVisible(lastShot.x, lastShot.y)) {
+                visibleBullets.push({
+                    id: 'flash_' + lastShot.tick,
+                    x: lastShot.x,
+                    y: lastShot.y,
+                    dir: 'up',
+                    owner: opponentKey,
+                    isFlash: true,
+                });
+            }
+        }
+
         return {
-            map: state.map,
-            youAre: playerKey,                                     // ← добавили
-            myTank: state.tanks[playerKey],
-            opponentTank: state.tanks[getOpponentKey(state, playerKey)],
-            myBase: state.bases[playerKey],
-            opponentBase: state.bases[getOpponentKey(state, playerKey)],
-            bullets: state.bullets,
+            map: foggedMap,
+            youAre: playerKey,
+            myTank,
+            opponentTank: visibleOppTank,
+            bullets: visibleBullets,
             tick: state.tick,
         };
     },
@@ -153,16 +194,26 @@ module.exports = {
     },
 };
 
-// ---------- Генератор карты ----------
+// ---------- Генератор карты (v1.29.0 — умный рандом) ----------
 
 /**
  * Генерирует карту 13×13 для дуэли.
- * — Рамка по периметру из бетона.
- * — Базы в нижних углах, защищены кирпичом.
- * — Препятствия в центре, симметричные относительно центра поля.
- * — Коридор перед базами и стартовые позиции танков — всегда пустые.
+ * — Без рамки (край карты = граница, дальше нельзя).
+ * — Умный рандом: без одиночных стен, с коридорами вокруг спавнов.
+ * — BFS-проверка: путь от P1 к P2 существует.
+ * — Декор: ящики, бочки, мешки, покрышки.
  */
 function generateMap() {
+    // Пытаемся до 20 раз. Обычно хватает 1-3 попыток.
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const map = buildRandomMap();
+        if (isMapPlayable(map)) return map;
+    }
+    // Fallback — пустая карта с парой стен, чтобы игра не падала.
+    return buildFallbackMap();
+}
+
+function buildRandomMap() {
     const map = [];
     for (let y = 0; y < MAP_SIZE; y++) {
         const row = [];
@@ -172,115 +223,172 @@ function generateMap() {
         map.push(row);
     }
 
-    // 1. Бетонная рамка по периметру
-    for (let x = 0; x < MAP_SIZE; x++) {
-        map[0][x] = TILE_STEEL;
-        map[MAP_SIZE - 1][x] = TILE_STEEL;
-    }
+    // 1. Основные стены/вода/кусты/декор — по всей карте, кроме зон спавнов
     for (let y = 0; y < MAP_SIZE; y++) {
-        map[y][0] = TILE_STEEL;
-        map[y][MAP_SIZE - 1] = TILE_STEEL;
-    }
+        for (let x = 0; x < MAP_SIZE; x++) {
+            // Зона 3×3 вокруг спавнов — принудительно пусто
+            if (isNearSpawn(x, y)) continue;
 
-    // 2. Препятствия в центре. Идём по верхней половине (y от 1 до 5),
-    //    и зеркалим на нижнюю (y' = MAP_SIZE - 1 - y).
-    //    Внутри y=6 (центральная линия) — тоже заполняем, но пополам
-    //    (левая часть зеркалится в правую).
-    for (let y = 1; y <= 5; y++) {
-        for (let x = 1; x <= 5; x++) {
-            // Клетка (x, y) — верхняя левая четверть. Кидаем тайл.
-            const tile = randomTile();
-            map[y][x] = tile;
-            // Зеркалим на верхнюю правую: (MAP_SIZE-1-x, y)
-            map[y][MAP_SIZE - 1 - x] = tile;
-            // Зеркалим на нижнюю левую: (x, MAP_SIZE-1-y)
-            map[MAP_SIZE - 1 - y][x] = tile;
-            // Зеркалим на нижнюю правую: (MAP_SIZE-1-x, MAP_SIZE-1-y)
-            map[MAP_SIZE - 1 - y][MAP_SIZE - 1 - x] = tile;
+            map[y][x] = randomTile();
         }
     }
 
-    // Центральная колонка x=6 верхней половины — симметрично по вертикали.
-    for (let y = 1; y <= 5; y++) {
-        const tile = randomTile();
-        map[y][6] = tile;
-        map[MAP_SIZE - 1 - y][6] = tile;
+    // 2. Чистим одиночные стены (окружённые пустотой со всех 4 сторон)
+    removeIsolatedWalls(map);
+
+    // 3. Гарантированный коридор шириной 2 в центре по вертикали и горизонтали
+    //    (чтобы не было «глухой стены» поперёк карты)
+    for (let y = 0; y < MAP_SIZE; y++) {
+        map[y][6] = map[y][6] === TILE_STEEL ? TILE_EMPTY : map[y][6];
+        map[y][7] = map[y][7] === TILE_STEEL ? TILE_EMPTY : map[y][7];
     }
-
-    // Центральная строка y=6 — симметрично по горизонтали.
-    for (let x = 1; x <= 5; x++) {
-        const tile = randomTile();
-        map[6][x] = tile;
-        map[6][MAP_SIZE - 1 - x] = tile;
+    for (let x = 0; x < MAP_SIZE; x++) {
+        map[6][x] = map[6][x] === TILE_STEEL ? TILE_EMPTY : map[6][x];
+        map[7][x] = map[7][x] === TILE_STEEL ? TILE_EMPTY : map[7][x];
     }
-    // Самая центральная клетка (6, 6) — пустая (для манёвра).
-    map[6][6] = TILE_EMPTY;
-
-    // 3. Базы (TILE_BASE) и защита из кирпича вокруг них.
-    placeBase(map, P1_BASE.x, P1_BASE.y);
-    placeBase(map, P2_BASE.x, P2_BASE.y);
-
-    // 4. Коридоры перед спавнами — принудительно пустые.
-    //    P1 спавн — нижний левый (1, 11): очищаем 3×2 над ним.
-    //    P2 спавн — верхний правый (11, 1): очищаем 3×2 под ним.
-    clearArea(map, 1, MAP_SIZE - 4, 3, 2);            // около P1 спавна
-    clearArea(map, MAP_SIZE - 4, 1, 3, 2);            // около P2 спавна
 
     return map;
 }
 
+/**
+ * Проверить: спавн-зона? (3×3 вокруг каждого спавна)
+ */
+function isNearSpawn(x, y) {
+    // v1.29.1: радиус 1 (зона 3×3 вокруг спавна), было 2 (5×5)
+    if (Math.abs(x - P1_SPAWN.x) <= 1 && Math.abs(y - P1_SPAWN.y) <= 1) return true;
+    if (Math.abs(x - P2_SPAWN.x) <= 1 && Math.abs(y - P2_SPAWN.y) <= 1) return true;
+    return false;
+}
+
+/**
+ * Случайный тайл. Веса:
+ * — 50% пусто
+ * — 20% кирпич
+ * — 3% бетон
+ * — 7% кусты
+ * — 5% вода
+ * — 15% декор (ящики, бочки, мешки, покрышки)
+ */
 function randomTile() {
-    // Веса: 30% пусто, 30% кирпич, 10% бетон, 15% вода, 15% кусты.
     const r = Math.random();
-    if (r < 0.30) return TILE_EMPTY;
-    if (r < 0.60) return TILE_BRICK;
-    if (r < 0.70) return TILE_STEEL;
-    if (r < 0.85) return TILE_WATER;
-    return TILE_BUSH;
+    if (r < 0.35) return TILE_EMPTY;      // 35% пусто (было 50)
+    if (r < 0.60) return TILE_BRICK;      // 25% кирпич (было 20)
+    if (r < 0.66) return TILE_STEEL;      // 6% бетон (было 3)
+    if (r < 0.76) return TILE_BUSH;       // 10% кусты (было 7)
+    if (r < 0.83) return TILE_WATER;      // 7% вода (было 5)
+
+    // Декор 17%
+    const d = Math.random();
+    if (d < 0.35) return TILE_CRATE;
+    if (d < 0.60) return TILE_BARREL;
+    if (d < 0.80) return TILE_SANDBAG;
+    return TILE_TIRE;
+}
+
+/**
+ * Убрать одиночные стены (окружённые пустотой со всех 4 сторон).
+ */
+function removeIsolatedWalls(map) {
+    for (let y = 1; y < MAP_SIZE - 1; y++) {
+        for (let x = 1; x < MAP_SIZE - 1; x++) {
+            const t = map[y][x];
+            if (t === TILE_EMPTY || t === TILE_TIRE || t === TILE_BUSH) continue;
+            if (t === TILE_WATER) continue;
+
+            const up = map[y - 1][x];
+            const down = map[y + 1][x];
+            const left = map[y][x - 1];
+            const right = map[y][x + 1];
+
+            const isWall = (v) => v !== TILE_EMPTY && v !== TILE_TIRE && v !== TILE_BUSH && v !== TILE_WATER;
+            const neighbors = [up, down, left, right].filter(isWall).length;
+
+            // Одиночная стена — если ни один сосед не стена
+            if (neighbors === 0) {
+                map[y][x] = TILE_EMPTY;
+            }
+        }
+    }
+}
+
+/**
+ * Проверка играбельности: путь от P1 до P2 через BFS.
+ */
+function isMapPlayable(map) {
+    const visited = [];
+    for (let y = 0; y < MAP_SIZE; y++) {
+        visited.push(new Array(MAP_SIZE).fill(false));
+    }
+
+    const queue = [{ x: P1_SPAWN.x, y: P1_SPAWN.y }];
+    visited[P1_SPAWN.y][P1_SPAWN.x] = true;
+
+    while (queue.length > 0) {
+        const { x, y } = queue.shift();
+
+        if (x === P2_SPAWN.x && y === P2_SPAWN.y) return true;
+
+        const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+        for (const [dx, dy] of dirs) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) continue;
+            if (visited[ny][nx]) continue;
+
+            if (!isPassable(map[ny][nx])) continue;
+
+            visited[ny][nx] = true;
+            queue.push({ x: nx, y: ny });
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Проходим ли тайл для танка? (BFS-логика)
+ */
+function isPassable(tile) {
+    return tile === TILE_EMPTY ||
+           tile === TILE_BUSH ||
+           tile === TILE_TIRE;
+           // ВАЖНО: ящик непроходим, пока не сломан. Убираем из проходимых.
+}
+
+/**
+ * Fallback-карта: простой крест в центре, всё остальное — пусто.
+ */
+function buildFallbackMap() {
+    const map = [];
+    for (let y = 0; y < MAP_SIZE; y++) {
+        const row = [];
+        for (let x = 0; x < MAP_SIZE; x++) {
+            row.push(TILE_EMPTY);
+        }
+        map.push(row);
+    }
+    for (let i = 2; i < MAP_SIZE - 2; i++) {
+        map[6][i] = TILE_BRICK;
+        map[i][6] = TILE_BRICK;
+    }
+    return map;
 }
 
 /**
  * Очистить прямоугольник (сделать все тайлы EMPTY).
- * x, y — левый верхний угол. w, h — ширина и высота.
  */
 function clearArea(map, x, y, w, h) {
     for (let dy = 0; dy < h; dy++) {
         for (let dx = 0; dx < w; dx++) {
             const ny = y + dy;
             const nx = x + dx;
-            if (ny > 0 && ny < MAP_SIZE - 1 && nx > 0 && nx < MAP_SIZE - 1) {
+            if (ny >= 0 && ny < MAP_SIZE && nx >= 0 && nx < MAP_SIZE) {
                 map[ny][nx] = TILE_EMPTY;
             }
         }
     }
 }
 
-/**
- * Поставить базу и обнести её кирпичом с трёх сторон.
- * База ставится на (x, y), кирпич — слева, справа и сверху.
- */
-function placeBase(map, x, y) {
-    // Сама база
-    map[y][x] = TILE_BASE;
-
-    // Кирпич вокруг (слева, справа, сверху).
-    // Проверяем границы, чтобы не вылезти за рамку бетона.
-    const around = [
-        { dx: -1, dy: 0 }, // слева
-        { dx: 1, dy: 0 }, // справа
-        { dx: 0, dy: -1 }, // сверху
-    ];
-    for (const { dx, dy } of around) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (ny > 0 && ny < MAP_SIZE - 1 && nx > 0 && nx < MAP_SIZE - 1) {
-            // Не затираем чужую базу (на всякий случай).
-            if (map[ny][nx] !== TILE_BASE) {
-                map[ny][nx] = TILE_BRICK;
-            }
-        }
-    }
-}
 
 function createTank(spawn) {
     return {
@@ -411,10 +519,16 @@ function canMoveTo(game, key, nx, ny) {
     if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) return false;
 
     const tile = game.map[ny][nx];
+
+    // Непроходимые
     if (tile === TILE_BRICK) return false;
     if (tile === TILE_STEEL) return false;
     if (tile === TILE_WATER) return false;
-    if (tile === TILE_BASE) return false;
+    if (tile === TILE_CRATE) return false;     // 📦 ящик — стена
+    if (tile === TILE_BARREL) return false;    // 🛢️ бочка — стена
+    if (tile === TILE_SANDBAG) return false;   // 🧱 мешки — стена
+
+    // Проходимые: EMPTY, BUSH, TIRE
 
     // Другой танк?
     const opponentKey = getOpponentKey(game, key);
@@ -468,29 +582,22 @@ function spawnBullet(game, key) {
     }
     const tile = game.map[ny][nx];
 
-    // v1.26.1 fix: выстрел в упор.
-    // Если прямо перед стволом кирпич — ломаем его, снаряд не создаём.
+        // v1.28.0: запоминаем выстрел для тумана (вспышка у соперника)
+    game.lastShots[key] = { x: tank.x, y: tank.y, tick: game.tick };
+
+    // v1.29.0: выстрел в упор — обработка разных тайлов
     if (tile === TILE_BRICK) {
         game.map[ny][nx] = TILE_EMPTY;
-        return null;   // пусть кулдаун сработает (танк «выстрелил в стену»)
-    }
-
-    // Бетон — не пробить, снаряд не создаём, кулдаун срабатывает.
-    if (tile === TILE_STEEL) {
         return null;
     }
-
-    // v1.26.6 fix: выстрел в упор по базе.
-    // Если прямо перед стволом — база, уничтожаем её сразу.
-    if (tile === TILE_BASE) {
-        if (game.bases.player1.x === nx && game.bases.player1.y === ny) {
-            game.bases.player1.alive = false;
-        }
-        if (game.bases.player2.x === nx && game.bases.player2.y === ny) {
-            game.bases.player2.alive = false;
-        }
-        return null;   // снаряд не создаём, кулдаун сработал
+    if (tile === TILE_CRATE) {   // 📦 ящик ломается как кирпич
+        game.map[ny][nx] = TILE_EMPTY;
+        return null;
     }
+    if (tile === TILE_STEEL) return null;   // бетон — не пробить
+    if (tile === TILE_BARREL) return null;  // 🛢️ бочка — не пробить
+    if (tile === TILE_SANDBAG) return null; // 🧱 мешки — не пробить
+
 
     // Всё остальное (пусто, кусты, вода) — снаряд создаётся
     // и полетит дальше. Попадание в базу обработает updateBullets
@@ -561,32 +668,29 @@ function checkBulletHit(game, bullet, nx, ny) {
         return 'destroy';
     }
 
-    // Бетон — не ломается, снаряд исчезает.
-    if (tile === TILE_STEEL) {
+    // 📦 Ящик — ломается как кирпич.
+    if (tile === TILE_CRATE) {
+        game.map[ny][nx] = TILE_EMPTY;
         return 'destroy';
     }
+
+    // Бетон — не ломается, снаряд исчезает.
+    if (tile === TILE_STEEL) return 'destroy';
+
+    // 🛢️ Бочка — не ломается.
+    if (tile === TILE_BARREL) return 'destroy';
+
+    // 🧱 Мешки — не ломаются.
+    if (tile === TILE_SANDBAG) return 'destroy';
 
     // Вода — снаряд пролетает.
-    if (tile === TILE_WATER) {
-        return 'continue';
-    }
+    if (tile === TILE_WATER) return 'continue';
 
     // Кусты — снаряд пролетает.
-    if (tile === TILE_BUSH) {
-        return 'continue';
-    }
+    if (tile === TILE_BUSH) return 'continue';
 
-    // База — уничтожается, снаряд исчезает.
-    if (tile === TILE_BASE) {
-        // Определяем, чья база.
-        if (game.bases.player1.x === nx && game.bases.player1.y === ny) {
-            game.bases.player1.alive = false;
-        }
-        if (game.bases.player2.x === nx && game.bases.player2.y === ny) {
-            game.bases.player2.alive = false;
-        }
-        return 'destroy';
-    }
+    // ⚫ Покрышка — снаряд пролетает.
+    if (tile === TILE_TIRE) return 'continue';
 
     // Танк — попадание.
     const tank = findTankAt(game, nx, ny);

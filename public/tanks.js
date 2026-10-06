@@ -39,7 +39,7 @@
         tick: 0,
     };
 
-        // ---------- Зеркалирование для Player2 (v1.27.0) ----------
+    // ---------- Зеркалирование для Player2 (v1.27.0) ----------
     // Player1 видит карту как есть. Player2 видит отражённую на 180°,
     // чтобы СВОЙ танк всегда был в левом нижнем углу.
 
@@ -55,11 +55,11 @@
     function flipDir(dir) {
         if (state.myKey !== 'player2') return dir;
         switch (dir) {
-            case 'up':    return 'down';
-            case 'down':  return 'up';
-            case 'left':  return 'right';
+            case 'up': return 'down';
+            case 'down': return 'up';
+            case 'left': return 'right';
             case 'right': return 'left';
-            default:      return dir;
+            default: return dir;
         }
     }
 
@@ -74,16 +74,21 @@
     const CANVAS_SIZE = canvas.width;           // 650
     const CELL = Math.floor(CANVAS_SIZE / MAP_SIZE);   // 50
     const TILE_EMPTY = 0, TILE_BRICK = 1, TILE_STEEL = 2,
-        TILE_WATER = 3, TILE_BUSH = 4, TILE_BASE = 5;
+          TILE_WATER = 3, TILE_BUSH = 4,
+          TILE_CRATE = 5, TILE_BARREL = 6, TILE_SANDBAG = 7, TILE_TIRE = 8,
+          TILE_FOG = 9;
 
-    // ---------- Цвета тайлов ----------
     const TILE_COLORS = {
-        0: '#222',        // empty
-        1: '#8b3a1c',     // brick
-        2: '#777',        // steel
-        3: '#1e4c8b',     // water
-        4: '#2a5a2a',     // bush
-        5: '#d4a017',     // base (жёлтая)
+        0: '#2a2a35',     // пустая дорога
+        1: '#8b3a1c',     // кирпич
+        2: '#777',        // бетон
+        3: '#1e4c8b',     // вода
+        4: '#2a5a2a',     // кусты
+        5: '#a06a30',     // 📦 ящик
+        6: '#5a3a1e',     // 🛢️ бочка
+        7: '#8a7a5a',     // 🧱 мешки
+        8: '#1a1a1a',     // ⚫ покрышка
+        9: '#0a0a0a',     // туман
     };
 
     // ========================================================
@@ -175,7 +180,7 @@
         console.log('✅ Соперник вернулся');
     });
 
-        socket.on('game_declined', ({ byUsername }) => {
+    socket.on('game_declined', ({ byUsername }) => {
         // v1.26.6: инициатор отменил приглашение — скрываем плашку.
         const inviteBar = document.getElementById('gameInviteBar');
         if (inviteBar) inviteBar.classList.add('hidden');
@@ -189,8 +194,6 @@
         state.map = s.map;
         state.myTank = s.myTank;
         state.opponentTank = s.opponentTank;
-        state.myBase = s.myBase;
-        state.opponentBase = s.opponentBase;
         state.bullets = s.bullets || [];
         state.tick = s.tick || 0;
 
@@ -205,76 +208,118 @@
     function redraw() {
         if (!state.map) return;
 
-        // 1. Очистка
-        ctx.fillStyle = '#0d0d0d';
+        ctx.fillStyle = '#050505';
         ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-        // 2. Карта (с зеркалированием для Player2)
+        // v1.29.2: рисуем карту в 2 прохода.
+        // 1) Всё, КРОМЕ кустов.
+        // 2) Танки.
+        // 3) Кусты (поверх танков — прячут).
+        // 4) Снаряды.
+
+        // Проход 1: карта без кустов
         for (let y = 0; y < MAP_SIZE; y++) {
             for (let x = 0; x < MAP_SIZE; x++) {
                 const t = state.map[y][x];
+                if (t === TILE_BUSH) continue;   // пропускаем кусты
                 drawTile(x, y, t);
             }
         }
 
-        // 3. Базы
-        if (state.myBase && !state.myBase.alive) {
-            drawDestroyedBase(state.myBase.x, state.myBase.y);
-        }
-        if (state.opponentBase && !state.opponentBase.alive) {
-            drawDestroyedBase(state.opponentBase.x, state.opponentBase.y);
-        }
-
-        // 4. Танки
+        // Проход 2: танки
         if (state.opponentTank && state.opponentTank.alive) {
-            drawTank(state.opponentTank, '#c0392b'); // враг — красный
+            drawTank(state.opponentTank, '#c0392b');
         }
         if (state.myTank && state.myTank.alive) {
-            drawTank(state.myTank, '#27ae60');       // я — зелёный
+            drawTank(state.myTank, '#27ae60');
         }
 
-        // 5. Снаряды
+        // Проход 3: кусты (поверх танков — прячут того, кто под ними)
+        for (let y = 0; y < MAP_SIZE; y++) {
+            for (let x = 0; x < MAP_SIZE; x++) {
+                const t = state.map[y][x];
+                if (t !== TILE_BUSH) continue;
+                drawTile(x, y, t);
+            }
+        }
+
+        // Проход 3.5: v1.29.3 — свой танк под кустом рисуем полупрозрачным
+        // силуэтом, чтобы игрок видел себя (соперник — нет).
+        if (state.myTank && state.myTank.alive) {
+            const mx = state.myTank.x;
+            const my = state.myTank.y;
+            if (state.map[my] && state.map[my][mx] === TILE_BUSH) {
+                const sx = toScreenX(mx);
+                const sy = toScreenY(my);
+                const px = sx * CELL;
+                const py = sy * CELL;
+                ctx.fillStyle = 'rgba(39, 174, 96, 0.45)';   // зелёный, полупрозрачный
+                ctx.fillRect(px + 6, py + 6, CELL - 12, CELL - 12);
+                // Тонкий контур
+                ctx.strokeStyle = 'rgba(39, 174, 96, 0.9)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px + 6, py + 6, CELL - 12, CELL - 12);
+            }
+        }
+
+        // Проход 4: снаряды (поверх всего — чтобы не терялись)
         for (const b of state.bullets) {
             drawBullet(b);
         }
     }
 
     function drawTile(x, y, t) {
-        // Зеркалим координаты для Player2
         const sx = toScreenX(x);
         const sy = toScreenY(y);
         const px = sx * CELL;
         const py = sy * CELL;
 
-        if (t === TILE_EMPTY) return; // фон уже чёрный
+        // v1.29.1: туман — используем TILE_FOG (9), а не [6]
+        if (t === TILE_FOG) {
+            ctx.fillStyle = TILE_COLORS[9];   // ← фикс
+            ctx.fillRect(px, py, CELL, CELL);
 
-        // v1.27.0: базы перекрашиваем — своя зелёная, врага красная
-        let color = TILE_COLORS[t] || '#000';
-        if (t === TILE_BASE) {
-            const isMyBase = state.myBase && state.myBase.x === x && state.myBase.y === y;
-            const isOppBase = state.opponentBase && state.opponentBase.x === x && state.opponentBase.y === y;
-            if (isMyBase)       color = '#27ae60';  // зелёный — своя
-            else if (isOppBase) color = '#c0392b';  // красный — врага
-            else                color = '#d4a017';  // жёлтый — неизвестная (не должно быть)
+            // Диагональные полоски
+            ctx.strokeStyle = 'rgba(120, 120, 150, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = -CELL; i < CELL; i += 8) {
+                ctx.moveTo(px + i, py);
+                ctx.lineTo(px + i + CELL, py + CELL);
+            }
+            ctx.stroke();
+            return;
         }
 
+        if (t === TILE_EMPTY) {
+            // v1.28.2: пустая дорога — явно видимая (чуть светлее фона)
+            ctx.fillStyle = TILE_COLORS[0];
+            ctx.fillRect(px, py, CELL, CELL);
+            return;
+        }
+
+        // v1.29.0: базы убраны. Декор — рисуем простым цветом + эмодзи.
+        const color = TILE_COLORS[t] || '#000';
         ctx.fillStyle = color;
         ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
 
-            // ... после fillRect:
+        // v1.29.0: эмодзи для декора (v1.29.1 — фикс: цвет сбрасывается на белый)
+        if (t === TILE_CRATE || t === TILE_BARREL || t === TILE_SANDBAG || t === TILE_TIRE) {
+            const emoji = {
+                5: '📦',   // ящик
+                6: '🛢️',  // бочка
+                7: '🧱',   // мешки
+                8: '⚫',   // покрышка
+            }[t];
 
-        // v1.27.0: иконка базы — 🏠 для своей, 💀 для врага
-        if (t === TILE_BASE) {
-            const isMyBase = state.myBase && state.myBase.x === x && state.myBase.y === y;
-            const isOppBase = state.opponentBase && state.opponentBase.x === x && state.opponentBase.y === y;
-            if (isMyBase || isOppBase) {
-                ctx.font = 'bold 24px sans-serif';
+            if (emoji) {
+                ctx.font = 'bold 22px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#fff';
-                ctx.fillText(isMyBase ? '🏠' : '💀', px + CELL / 2, py + CELL / 2);
+                ctx.fillStyle = '#fff';           // ← ЯВНО белый (не цвет клетки!)
+                ctx.fillText(emoji, px + CELL / 2, py + CELL / 2);
             }
-        }    
+        }
 
         // Кирпич — рисуем «швы»
         if (t === TILE_BRICK) {
@@ -300,6 +345,11 @@
 
         // Кусты — точки
         if (t === TILE_BUSH) {
+            // v1.29.2: плотная заливка, чтобы точно скрыть танк
+            ctx.fillStyle = '#2a5a2a';
+            ctx.fillRect(px, py, CELL, CELL);   // ← заливка на всю клетку
+
+            // Точки для текстуры
             ctx.fillStyle = '#4a8a4a';
             for (let i = 0; i < 5; i++) {
                 const rx = px + 8 + Math.random() * (CELL - 16);
@@ -337,9 +387,9 @@
         const cx = px + CELL / 2;
         const cy = py + CELL / 2;
         const len = CELL / 2;
-        if (dir === 'up')    { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); }
-        if (dir === 'down')  { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + len); }
-        if (dir === 'left')  { ctx.moveTo(cx, cy); ctx.lineTo(cx - len, cy); }
+        if (dir === 'up') { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); }
+        if (dir === 'down') { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + len); }
+        if (dir === 'left') { ctx.moveTo(cx, cy); ctx.lineTo(cx - len, cy); }
         if (dir === 'right') { ctx.moveTo(cx, cy); ctx.lineTo(cx + len, cy); }
         ctx.stroke();
     }
