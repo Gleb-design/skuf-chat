@@ -17,20 +17,29 @@ const TILE_WATER = 3;
 const TILE_BUSH = 4;
 const TILE_BASE = 5;
 
-const TANK_LIVES = 3;
+const TANK_LIVES = 5;   // v1.27.0: 5 попаданий = смерть (без респавна)
 const TANK_SPEED_TICKS = 5;       // 1 клетка за 5 тиков
 const BULLET_SPEED_TICKS = 1;     // 1 клетка за 1 тик
-const RESPAWN_TICKS = 40;         // 2 сек при 20 Гц
+// const RESPAWN_TICKS = 40;         // 2 сек при 20 Гц
 const BATTLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 минут
 
-// Стартовые позиции танков (у своих баз, на 1 клетку выше).
-// Базы — в самых нижних углах, рядом с бетонной рамкой.
-const P1_SPAWN = { x: 1, y: MAP_SIZE - 3, dir: 'up' };   // x=1, y=10
-const P2_SPAWN = { x: MAP_SIZE - 2, y: MAP_SIZE - 3, dir: 'up' }; // x=11, y=10
+// v1.27.0: танки в противоположных углах, базы — в углах,
+// противоположных своему спавну по вертикали.
+//
+// Карта (физические координаты):
+//   (1,1) — база P1               (11,1) — спавн P2 (смотрит вниз)
+//   (1,11) — спавн P1 (смотрит вверх)   (11,11) — база P2
+//
+// После зеркалирования (для Player2) карта отражается на 180°:
+// Player2 видит СВОЙ спавн в (1,11), свою базу в (1,1),
+// спавн соперника в (11,1), базу соперника в (11,11).
+// Симметрично — оба игрока видят одинаковую картину.
 
-// Позиции баз (в нижних углах).
-const P1_BASE = { x: 1, y: MAP_SIZE - 2 };               // x=1, y=11
-const P2_BASE = { x: MAP_SIZE - 2, y: MAP_SIZE - 2 };    // x=11, y=11
+const P1_SPAWN = { x: 1, y: MAP_SIZE - 2, dir: 'up' };   // x=1, y=11 (нижний левый)
+const P1_BASE  = { x: 1, y: 1 };                          // x=1, y=1  (верхний левый)
+
+const P2_SPAWN = { x: MAP_SIZE - 2, y: 1, dir: 'down' }; // x=11, y=1  (верхний правый)
+const P2_BASE  = { x: MAP_SIZE - 2, y: MAP_SIZE - 2 };   // x=11, y=11 (нижний правый)
 
 // ---------- Контракт модуля ----------
 module.exports = {
@@ -211,10 +220,11 @@ function generateMap() {
     placeBase(map, P1_BASE.x, P1_BASE.y);
     placeBase(map, P2_BASE.x, P2_BASE.y);
 
-    // 4. Коридор перед базами — принудительно пустой
-    //    (затирает лишний кирпич над базами, где стоят танки).
-    clearArea(map, 1, MAP_SIZE - 4, 3, 2);
-    clearArea(map, MAP_SIZE - 4, MAP_SIZE - 4, 3, 2);
+    // 4. Коридоры перед спавнами — принудительно пустые.
+    //    P1 спавн — нижний левый (1, 11): очищаем 3×2 над ним.
+    //    P2 спавн — верхний правый (11, 1): очищаем 3×2 под ним.
+    clearArea(map, 1, MAP_SIZE - 4, 3, 2);            // около P1 спавна
+    clearArea(map, MAP_SIZE - 4, 1, 3, 2);            // около P2 спавна
 
     return map;
 }
@@ -418,28 +428,13 @@ function canMoveTo(game, key, nx, ny) {
  * Возродить танки, у которых наступило время респавна.
  * (Пока без стрельбы — просто ставим на стартовую позицию.)
  */
+/**
+ * v1.27.0: респавн отключён — 5 попаданий = смерть навсегда.
+ * Функция оставлена пустой (для совместимости с tickGame).
+ */
 function respawnTanks(game) {
-    const spawns = { p1: null, p2: null }; // заполним по ходу
-    // Нам неизвестно, какой ключ — player1 или player2.
-    // Используем порядок ключей в game.tanks.
-    const keys = Object.keys(game.tanks);
-
-    // Спавны жёстко зашиты по позициям: первый игрок — P1_SPAWN, второй — P2_SPAWN.
-    // Так как порядок ключей сохраняется с момента создания, это работает.
-    const spawnList = [P1_SPAWN, P2_SPAWN];
-
-    keys.forEach((key, idx) => {
-        const tank = game.tanks[key];
-        if (tank.alive) return;
-        if (game.tick < tank.respawnAt) return;
-
-        const spawn = spawnList[idx];
-        tank.x = spawn.x;
-        tank.y = spawn.y;
-        tank.dir = spawn.dir;
-        tank.alive = true;
-        tank.cooldown = 0;
-    });
+    // Ничего не делаем. Раньше танки возрождались через RESPAWN_TICKS,
+    // теперь — конец партии при потере всех жизней.
 }
 
 // ============ СТРЕЛЬБА (v1.26.1) ============
@@ -634,12 +629,9 @@ function hitTank(game, key) {
     tank.lives -= 1;
 
     if (tank.lives <= 0) {
-        // Всё, танк мёртв окончательно. Оставим alive: false без respawnAt.
+        // v1.27.0: 5 попаданий — танк мёртв навсегда. Конец партии.
         tank.alive = false;
-        tank.respawnAt = Infinity;  // никогда не респавнится
-    } else {
-        // Ждём респавна.
-        tank.alive = false;
-        tank.respawnAt = game.tick + RESPAWN_TICKS;
+        tank.respawnAt = Infinity;
     }
+    // Если lives > 0 — танк продолжает жить, респавн не нужен.
 }

@@ -39,6 +39,30 @@
         tick: 0,
     };
 
+        // ---------- Зеркалирование для Player2 (v1.27.0) ----------
+    // Player1 видит карту как есть. Player2 видит отражённую на 180°,
+    // чтобы СВОЙ танк всегда был в левом нижнем углу.
+
+    // Преобразовать игровые координаты в экранные
+    function toScreenX(x) {
+        return (state.myKey === 'player2') ? (MAP_SIZE - 1 - x) : x;
+    }
+    function toScreenY(y) {
+        return (state.myKey === 'player2') ? (MAP_SIZE - 1 - y) : y;
+    }
+
+    // Развернуть направление (для ствола танка)
+    function flipDir(dir) {
+        if (state.myKey !== 'player2') return dir;
+        switch (dir) {
+            case 'up':    return 'down';
+            case 'down':  return 'up';
+            case 'left':  return 'right';
+            case 'right': return 'left';
+            default:      return dir;
+        }
+    }
+
     // ---------- Ввод ----------
     // Храним текущее зажатое состояние клавиш.
     const input = { up: false, down: false, left: false, right: false, shoot: false };
@@ -185,7 +209,7 @@
         ctx.fillStyle = '#0d0d0d';
         ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-        // 2. Карта
+        // 2. Карта (с зеркалированием для Player2)
         for (let y = 0; y < MAP_SIZE; y++) {
             for (let x = 0; x < MAP_SIZE; x++) {
                 const t = state.map[y][x];
@@ -193,8 +217,7 @@
             }
         }
 
-        // 3. Базы (поверх — они уже внутри карты как TILE_BASE, но
-        //    если база уничтожена — рисуем крест)
+        // 3. Базы
         if (state.myBase && !state.myBase.alive) {
             drawDestroyedBase(state.myBase.x, state.myBase.y);
         }
@@ -210,20 +233,48 @@
             drawTank(state.myTank, '#27ae60');       // я — зелёный
         }
 
-        // 5. Снаряды (пока пусто, но код готов)
+        // 5. Снаряды
         for (const b of state.bullets) {
             drawBullet(b);
         }
     }
 
     function drawTile(x, y, t) {
-        const px = x * CELL;
-        const py = y * CELL;
+        // Зеркалим координаты для Player2
+        const sx = toScreenX(x);
+        const sy = toScreenY(y);
+        const px = sx * CELL;
+        const py = sy * CELL;
 
         if (t === TILE_EMPTY) return; // фон уже чёрный
 
-        ctx.fillStyle = TILE_COLORS[t] || '#000';
+        // v1.27.0: базы перекрашиваем — своя зелёная, врага красная
+        let color = TILE_COLORS[t] || '#000';
+        if (t === TILE_BASE) {
+            const isMyBase = state.myBase && state.myBase.x === x && state.myBase.y === y;
+            const isOppBase = state.opponentBase && state.opponentBase.x === x && state.opponentBase.y === y;
+            if (isMyBase)       color = '#27ae60';  // зелёный — своя
+            else if (isOppBase) color = '#c0392b';  // красный — врага
+            else                color = '#d4a017';  // жёлтый — неизвестная (не должно быть)
+        }
+
+        ctx.fillStyle = color;
         ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+
+            // ... после fillRect:
+
+        // v1.27.0: иконка базы — 🏠 для своей, 💀 для врага
+        if (t === TILE_BASE) {
+            const isMyBase = state.myBase && state.myBase.x === x && state.myBase.y === y;
+            const isOppBase = state.opponentBase && state.opponentBase.x === x && state.opponentBase.y === y;
+            if (isMyBase || isOppBase) {
+                ctx.font = 'bold 24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(isMyBase ? '🏠' : '💀', px + CELL / 2, py + CELL / 2);
+            }
+        }    
 
         // Кирпич — рисуем «швы»
         if (t === TILE_BRICK) {
@@ -261,8 +312,13 @@
     }
 
     function drawTank(tank, color) {
-        const px = tank.x * CELL;
-        const py = tank.y * CELL;
+        // Зеркалим координаты и направление
+        const sx = toScreenX(tank.x);
+        const sy = toScreenY(tank.y);
+        const dir = flipDir(tank.dir);
+
+        const px = sx * CELL;
+        const py = sy * CELL;
         const pad = 4;
 
         // Основа
@@ -274,23 +330,26 @@
         ctx.lineWidth = 2;
         ctx.strokeRect(px + pad, py + pad, CELL - pad * 2, CELL - pad * 2);
 
-        // Ствол (в сторону dir)
+        // Ствол (в развёрнутую сторону)
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 4;
         ctx.beginPath();
         const cx = px + CELL / 2;
         const cy = py + CELL / 2;
         const len = CELL / 2;
-        if (tank.dir === 'up') { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); }
-        if (tank.dir === 'down') { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + len); }
-        if (tank.dir === 'left') { ctx.moveTo(cx, cy); ctx.lineTo(cx - len, cy); }
-        if (tank.dir === 'right') { ctx.moveTo(cx, cy); ctx.lineTo(cx + len, cy); }
+        if (dir === 'up')    { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); }
+        if (dir === 'down')  { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + len); }
+        if (dir === 'left')  { ctx.moveTo(cx, cy); ctx.lineTo(cx - len, cy); }
+        if (dir === 'right') { ctx.moveTo(cx, cy); ctx.lineTo(cx + len, cy); }
         ctx.stroke();
     }
 
     function drawBullet(b) {
-        const cx = b.x * CELL + CELL / 2;
-        const cy = b.y * CELL + CELL / 2;
+        // Зеркалим координаты снаряда
+        const sx = toScreenX(b.x);
+        const sy = toScreenY(b.y);
+        const cx = sx * CELL + CELL / 2;
+        const cy = sy * CELL + CELL / 2;
         ctx.fillStyle = '#ffd54f';
         ctx.beginPath();
         ctx.arc(cx, cy, 5, 0, Math.PI * 2);
@@ -298,8 +357,11 @@
     }
 
     function drawDestroyedBase(x, y) {
-        const px = x * CELL;
-        const py = y * CELL;
+        // Зеркалим координаты уничтоженной базы
+        const sx = toScreenX(x);
+        const sy = toScreenY(y);
+        const px = sx * CELL;
+        const py = sy * CELL;
         ctx.strokeStyle = '#ff2222';
         ctx.lineWidth = 4;
         ctx.beginPath();
@@ -347,10 +409,25 @@
             if (!state.active || !state.gameId) return;
             if (!inputDirty) return;
             inputDirty = false;
+
+            // v1.27.0: для Player2 input разворачивается, потому что он
+            // видит зеркальную карту. W (вверх на экране) = down в игровых
+            // координатах. То же для остальных направлений.
+            let dataToSend = { ...input };
+            if (state.myKey === 'player2') {
+                dataToSend = {
+                    up: input.down,
+                    down: input.up,
+                    left: input.right,
+                    right: input.left,
+                    shoot: input.shoot,   // стрельба не реверсируется
+                };
+            }
+
             socket.emit('game_action', {
                 gameId: state.gameId,
                 action: 'input',
-                data: { ...input },
+                data: dataToSend,
             });
         }, 50);
     }
